@@ -151,17 +151,19 @@ def _sync_entity(endpoint,
     return items
 
 
-def _transform_tickets(tickets):
-    rtn = []
-    for ticket in tickets:
-        ticket.pop('attachments')
-        if 'custom_field' in ticket:
-            pack = lambda x: [{"name": k, "value": v} for k, v in x.items()]
-            ticket['custom_fields'] = pack(ticket['custom_fields'])
+def _transform_custom_fields(items):
+    for item in items:
+        if 'custom_fields' in item:
+            transform = lambda x: [{"name": k, "value": v} for k, v in x.items()]
+            item['custom_fields'] = transform(item['custom_fields'])
 
-        rtn.append(ticket)
+    return items
 
-    return rtn
+def _transform_remove_attachments(items):
+    for item in items:
+        item.pop('attachments')
+
+    return items
 
 
 def _mk_updated_at(entity, cmp_key):
@@ -169,6 +171,27 @@ def _mk_updated_at(entity, cmp_key):
         return [item for item in items if item[cmp_key] >= state[entity]]
 
     return _transform_updated_at
+
+
+def _transform_tickets(items):
+    items = _transform_remove_attachments(items)
+    items = _transform_custom_fields(items)
+    return items
+
+
+def _transform_satisfaction_ratings(satisfaction_ratings):
+    for satisfaction_rating in satisfaction_ratings:
+        transform = lambda x: [{"question": k, "value": v} for k, v in x.items()]
+        satisfaction_rating['ratings'] = transform(satisfaction_rating['ratings'])
+
+    return satisfaction_ratings
+
+
+def _transform_companies(items):
+    _transform_updated_at = _mk_updated_at("companies", "updated_at")
+    items = _transform_custom_fields(items)
+    items = _transform_updated_at(items)
+    return items
 
 
 def do_sync():
@@ -192,11 +215,13 @@ def do_sync():
         _sync_entity("sub_ticket",
                      entity="conversations",
                      ticket_id=ticket['id']
+                     transform=_transform_remove_attachments
                      sync_state=False)
 
         _sync_entity("sub_ticket",
                      entity="satisfaction_ratings",
                      ticket_id=ticket['id'],
+                     transform=_transform_satisfaction_ratings,
                      sync_state=False)
 
         # The only endpoint sporting a timestamp of any kind is time_entries.
@@ -205,8 +230,6 @@ def do_sync():
                      entity="time_entries",
                      ticket_id=ticket['id'],
                      transform=_mk_updated_at("tickets", "updated_at"),
-                     updated_at=state['tickets'],
-                     cmp_key="created_at",
                      sync_state=False)
 
 
@@ -220,8 +243,8 @@ def do_sync():
     _sync_entity("agents", transform=_mk_updated_at("agents", "updated_at"))
     _sync_entity("roles", transform=_mk_updated_at("roles", "updated_at"))
     _sync_entity("groups", transform=_mk_updated_at("groups", "updated_at"))
-    _sync_entity("companies", transform=_mk_updated_at("companies", "updated_at"))
-    _sync_entity("contacts")
+    _sync_entity("companies", transform=_transform_companies)
+    _sync_entity("contacts", transform=_transform_custom_fields)
 
 
 def do_check():

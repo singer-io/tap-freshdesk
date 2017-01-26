@@ -39,12 +39,6 @@
         "number"
       ]
     }, 
-    "custom_fields": {
-      "type": [
-        "null", 
-        "dictionary"
-      ]
-    }, 
     "other_emails": {
       "items": {
         "type": [
