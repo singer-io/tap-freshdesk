@@ -1,0 +1,112 @@
+{
+  "body": {
+    "type": [
+      "null", 
+      "string"
+    ]
+  }, 
+  "user_id": {
+    "type": [
+      "null", 
+      "integer"
+    ]
+  }, 
+  "body_text": {
+    "type": [
+      "null", 
+      "string"
+    ]
+  }, 
+  "created_at": {
+    "type": [
+      "null", 
+      "string"
+    ], 
+    "format": "date-time"
+  }, 
+  "cc_emails": {
+    "items": {
+      "type": [
+        "null", 
+        "string"
+      ]
+    }, 
+    "type": [
+      "null", 
+      "array"
+    ]
+  }, 
+  "to_emails": {
+    "items": {
+      "type": [
+        "null", 
+        "string"
+      ]
+    }, 
+    "type": [
+      "null", 
+      "array"
+    ]
+  }, 
+  "updated_at": {
+    "type": [
+      "null", 
+      "string"
+    ], 
+    "format": "date-time"
+  }, 
+  "private": {
+    "type": [
+      "null", 
+      "boolean"
+    ]
+  }, 
+  "support_email": {
+    "type": [
+      "null", 
+      "string"
+    ]
+  }, 
+  "source": {
+    "type": [
+      "null", 
+      "number"
+    ]
+  }, 
+  "bcc_emails": {
+    "items": {
+      "type": [
+        "null", 
+        "string"
+      ]
+    }, 
+    "type": [
+      "null", 
+      "array"
+    ]
+  }, 
+  "ticket_id": {
+    "type": [
+      "null", 
+      "integer"
+    ]
+  }, 
+  "incoming": {
+    "type": [
+      "null", 
+      "boolean"
+    ]
+  }, 
+  "from_email": {
+    "type": [
+      "null", 
+      "string"
+    ]
+  }, 
+  "id": {
+    "type": [
+      "null", 
+      "integer"
+    ]
+  }
+}
