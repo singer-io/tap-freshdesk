@@ -22,7 +22,15 @@ DEFAULT_START_DATE = datetime.datetime(2000, 1, 1).strftime(DATETIME_FMT)
 
 GET_COUNT = 0
 
-state = {}
+state = {
+    "tickets": DEFAULT_START_DATE,
+    "agents": DEFAULT_START_DATE,
+    "roles": DEFAULT_START_DATE,
+    "groups": DEFAULT_START_DATE,
+    "companies": DEFAULT_START_DATE,
+    "contacts": DEFAULT_START_DATE,
+}
+
 endpoints = {
     "tickets": "/api/v2/tickets",
     "sub_ticket": "/api/v2/tickets/{ticket_id}/{entity}",
@@ -38,16 +46,25 @@ logger = logging.getLogger("stitch.streamer")
 session = requests.Session()
 
 
-def stream(method, data=None, entity_type=None):
+def stream_state():
     if not QUIET:
-        if method == "state":
-            stitchstream.write_state(state)
-        elif method == "schema":
-            stitchstream.write_schema(entity_type, data)
-        elif method == "records":
-            stitchstream.write_records(entity_type, data)
-        else:
-            raise ValueError("Unknown method {}".format(method))
+        stitchstream.write_state(state)
+    else:
+        logger.debug("Stream state")
+
+
+def stream_schema(entity, schema):
+    if not QUIET:
+        stitchstream.write_schema(entity, schema)
+    else:
+        logger.debug("Stream schema {}".format(entity))
+
+
+def stream_records(entity, records):
+    if not QUIET:
+        stitchstream.write_records(entity, records)
+    else:
+        logger.debug("Stream records {} ({})".format(entity, len(records)))
 
 
 def load_config(config_file):
@@ -63,10 +80,12 @@ def load_config(config_file):
 
 def load_state(state_file):
     with open(state_file) as f:
-        data = json.load(f)
+        state.update(json.load(f))
 
-    for entity in entities:
-        state[entity] = data.get(entity, DEFAULT_START_DATE)
+
+def load_schema(entity):
+    with open("schemas/{}.json".format(entity)) as f:
+        return json.load(f)
 
 
 @backoff.on_exception(backoff.expo,
@@ -94,15 +113,8 @@ def get_url_and_params(endpoint, **kwargs):
     return (url, params)
 
 
-def api_request(endpoint, **kwargs):
-    return request(get_url_and_params(endpoint, **kwargs))
-
-
 def get_list(endpoint, **kwargs):
     url, params = get_url_and_params(endpoint, **kwargs)
-
-    if created_at:
-        params
 
     has_more = True
     page = 1
@@ -112,6 +124,7 @@ def get_list(endpoint, **kwargs):
             params['page'] = page
 
         resp = request(url, params)
+        data = resp.json()
         items.extend(data)
         if len(data) == PER_PAGE:
             page += 1
@@ -121,13 +134,14 @@ def get_list(endpoint, **kwargs):
     return items
 
 
-def _sync_entity(endpoint,
-                 transform=None,
-                 sync_state=True,
-                 **kwargs)
+def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
     entity = kwargs.get("entity", endpoint)
-
     logger.info("{}: Starting sync".format(entity))
+
+    schema = load_schema(entity)
+    stream_schema(entity, schema)
+    logger.info("{}: Sent schema".format(entity))
+
     items = get_list(endpoint, **kwargs)
     fetched_count = len(items)
     logger.info("{}: Got {}".format(entity, fetched_count))
@@ -138,14 +152,14 @@ def _sync_entity(endpoint,
             logger.info(
                 "{}: After filter {}/{}".format(entity, len(items), fetched_count))
 
-        stream("records", entity, items)
+        stream_records(entity, items)
         logger.info("{}: Persisted {} records".format(entity, len(items)))
     else:
         logger.info("{}: None found".format(entity))
 
     if sync_state:
         state[entity] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-        stream("state")
+        stream_state()
         logger.info("{}: State synced".format(entity))
 
     return items
@@ -161,7 +175,7 @@ def _transform_custom_fields(items):
 
 def _transform_remove_attachments(items):
     for item in items:
-        item.pop('attachments')
+        item.pop('attachments', None)
 
     return items
 
@@ -202,7 +216,7 @@ def do_sync():
                            updated_since=state['tickets'],
                            order_by="updated_at",
                            order_type="asc",
-                           transform=_transform_ticket,
+                           transform=_transform_tickets,
                            sync_state=False)
 
     # Each ticket has conversations, time_entries, and satisfaction_ratings
@@ -214,8 +228,8 @@ def do_sync():
     for ticket in tickets:
         _sync_entity("sub_ticket",
                      entity="conversations",
-                     ticket_id=ticket['id']
-                     transform=_transform_remove_attachments
+                     ticket_id=ticket['id'],
+                     transform=_transform_remove_attachments,
                      sync_state=False)
 
         _sync_entity("sub_ticket",
@@ -236,7 +250,7 @@ def do_sync():
     # Once all tickets' subitems have been processed, we can update the ticket
     # state to now and push it to the persister.
     state['tickets'] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
-    stream("state")
+    stream_state()
 
     # Agents, roles, groups, and companies are not filterable, but they have
     # updated_at fields that can be used after grabbing them from the api.
@@ -249,7 +263,7 @@ def do_sync():
 
 def do_check():
     try:
-        api_request("roles")
+        request(get_url_and_params("roles", **kwargs))
     except requests.exceptions.RequestException as e:
         logger.fatal("Error checking connection using {e.request.url}; "
                      "received status {e.response.status_code}: {e.response.test}".format(e=e))
@@ -261,7 +275,6 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('func', choices=['check', 'sync'])
-    args = parser.parse_args()
     parser.add_argument('-c', '--config', help='Config file', required=True)
     parser.add_argument('-s', '--state', help='State file')
     parser.add_argument('-d', '--debug', dest='debug', action='store_true',
@@ -269,13 +282,14 @@ def main():
     parser.add_argument('-q', '--quiet', dest='quiet', action='store_true',
                         help='Do not output to stdout (no persisting)')
     parser.set_defaults(debug=False, quiet=False)
+    args = parser.parse_args()
 
     QUIET = args.quiet
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
 
-    load_config()
+    load_config(args.config)
     if args.state:
         logger.info("Loading state from " + args.state)
         load_state(args.state)

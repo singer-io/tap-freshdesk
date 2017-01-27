@@ -1,5 +1,5 @@
 {
-  "type": "object":
+  "type": "object",
   "properties": {
     "survey_id": {
       "type": [
