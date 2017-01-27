@@ -14,13 +14,15 @@ import requests
 import stitchstream
 
 
+QUIET = False
 API_KEY = None
+DOMAIN = None
 BASE_URL = "https://{domain}.freshdesk.com"
 PER_PAGE = 100
 DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
 DEFAULT_START_DATE = datetime.datetime(2000, 1, 1).strftime(DATETIME_FMT)
-
 GET_COUNT = 0
+PERSISTED_COUNT = 0
 
 state = {
     "tickets": DEFAULT_START_DATE,
@@ -70,12 +72,14 @@ def stream_records(entity, records):
 def load_config(config_file):
     global API_KEY
     global BASE_URL
+    global DOMAIN
 
     with open(config_file) as f:
         data = json.load(f)
 
     API_KEY = data['api_key']
-    BASE_URL = BASE_URL.format(domain=data['domain'])
+    DOMAIN = data['domain']
+    BASE_URL = BASE_URL.format(domain=DOMAIN)
 
 
 def load_state(state_file):
@@ -135,6 +139,8 @@ def get_list(endpoint, **kwargs):
 
 
 def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
+    global PERSISTED_COUNT
+
     entity = kwargs.get("entity", endpoint)
     logger.info("{}: Starting sync".format(entity))
 
@@ -153,12 +159,13 @@ def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
                 "{}: After filter {}/{}".format(entity, len(items), fetched_count))
 
         stream_records(entity, items)
+        PERSISTED_COUNT += len(items)
         logger.info("{}: Persisted {} records".format(entity, len(items)))
     else:
         logger.info("{}: None found".format(entity))
 
     if sync_state:
-        state[entity] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        state[entity] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
         stream_state()
         logger.info("{}: State synced".format(entity))
 
@@ -209,6 +216,8 @@ def _transform_companies(items):
 
 
 def do_sync():
+    logger.info("Starting FreshDesk sync for {}".format(DOMAIN))
+
     # Tickets can be filtered and sorted by last updated, but the custom_fields
     # dict needs transforming. Also, the attachments field can be up to 15MB,
     # so we won't support that for now.
@@ -259,6 +268,9 @@ def do_sync():
     _sync_entity("groups", transform=_mk_updated_at("groups", "updated_at"))
     _sync_entity("companies", transform=_transform_companies)
     _sync_entity("contacts", transform=_transform_custom_fields)
+
+    logger.info("Completed FreshDesk sync for {}. requests: {}, rows synced: {}"
+                .format(DOMAIN, GET_COUNT, PERSISTED_COUNT))
 
 
 def do_check():
