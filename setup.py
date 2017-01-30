@@ -20,7 +20,7 @@ setup(name='stream-freshdesk',
           [console_scripts]
           stream-freshdesk=stream_freshdesk:main
       ''',
-      packages=['stream_closeio'],
+      packages=['stream_freshdesk'],
       package_data = {
           'stream_freshdesk': [
               'agents.json',
