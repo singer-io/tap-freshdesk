@@ -120,27 +120,6 @@ def get_url_and_params(endpoint, **kwargs):
     return (url, params)
 
 
-def get_list(endpoint, **kwargs):
-    url, params = get_url_and_params(endpoint, **kwargs)
-
-    has_more = True
-    page = 1
-    items = []
-    while has_more:
-        if page > 1:
-            params['page'] = page
-
-        resp = request(url, params)
-        data = resp.json()
-        items.extend(data)
-        if len(data) == PER_PAGE:
-            page += 1
-        else:
-            has_more = False
-
-    return items
-
-
 def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
     global PERSISTED_COUNT
 
@@ -151,26 +130,33 @@ def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
     stream_schema(entity, schema)
     logger.info("{}: Sent schema".format(entity))
 
-    items = get_list(endpoint, **kwargs)
-    fetched_count = len(items)
-    logger.info("{}: Got {}".format(entity, fetched_count))
+    url, params = get_url_and_params(endpoint, **kwargs)
 
-    if items:
-        if transform:
-            items = transform(items)
-            logger.info(
-                "{}: After filter {}/{}".format(entity, len(items), fetched_count))
+    has_more = True
+    page = 1
+    items = []
+    while has_more:
+        params['page'] = page
+        resp = request(url, params)
+        data = resp.json()
 
-        stream_records(entity, items)
-        PERSISTED_COUNT += len(items)
-        logger.info("{}: Persisted {} records".format(entity, len(items)))
-    else:
-        logger.info("{}: None found".format(entity))
+        if data:
+            if transform:
+                data = transform(data)
 
-    if sync_state:
-        state[entity] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
-        stream_state()
-        logger.info("{}: State synced".format(entity))
+            items.extend(data)
+            stream_records(entity, data)
+            logger.info("{}: Persisted {} records".format(entity, len(data)))
+            PERSISTED_COUNT += len(data)
+
+        if sync_state:
+            state[entity] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
+            stream_state()
+
+        if len(data) == PER_PAGE:
+            page += 1
+        else:
+            has_more = False
 
     return items
 
@@ -182,6 +168,7 @@ def _transform_custom_fields(items):
             item['custom_fields'] = transform(item['custom_fields'])
 
     return items
+
 
 def _transform_remove_attachments(items):
     for item in items:
@@ -289,14 +276,15 @@ def main():
     global QUIET
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('func', choices=['check', 'sync'])
     parser.add_argument('-c', '--config', help='Config file', required=True)
     parser.add_argument('-s', '--state', help='State file')
+    parser.add_argument('-t', '--check', dest='check', action='store_true',
+                        help='Test connection only')
     parser.add_argument('-d', '--debug', dest='debug', action='store_true',
                         help='Sets the log level to DEBUG (default INFO)')
     parser.add_argument('-q', '--quiet', dest='quiet', action='store_true',
                         help='Do not output to stdout (no persisting)')
-    parser.set_defaults(debug=False, quiet=False)
+    parser.set_defaults(check=False, debug=False, quiet=False)
     args = parser.parse_args()
 
     QUIET = args.quiet
@@ -309,7 +297,7 @@ def main():
         logger.info("Loading state from " + args.state)
         load_state(args.state)
 
-    if args.func == "check":
+    if args.check:
         do_check()
     else:
         do_sync()
