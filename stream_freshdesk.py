@@ -88,7 +88,10 @@ def load_state(state_file):
 
 
 def load_schema(entity):
-    with open("stream_freshdesk/{}.json".format(entity)) as f:
+    path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                        "stream_freshdesk",
+                        "{}.json".format(entity))
+    with open(path) as f:
         return json.load(f)
 
 
