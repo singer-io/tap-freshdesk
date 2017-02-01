@@ -3,18 +3,14 @@
 import argparse
 import datetime
 import json
-import logging
-import logging.config
 import os
 import sys
 
 import backoff
-import dateutil.parser
 import requests
 import stitchstream
 
 
-QUIET = False
 API_KEY = None
 DOMAIN = None
 BASE_URL = "https://{domain}.freshdesk.com"
@@ -43,48 +39,7 @@ endpoints = {
     "contacts": "/api/v2/contacts",
 }
 
-logging.config.fileConfig("/etc/stitch/logging.conf")
-logger = logging.getLogger("stitch.streamer")
-session = requests.Session()
-
-
-def stream_state():
-    if not QUIET:
-        stitchstream.write_state(state)
-    else:
-        logger.debug("Stream state")
-
-
-def stream_schema(entity, schema):
-    if not QUIET:
-        stitchstream.write_schema(entity, schema)
-    else:
-        logger.debug("Stream schema {}".format(entity))
-
-
-def stream_records(entity, records):
-    if not QUIET:
-        stitchstream.write_records(entity, records)
-    else:
-        logger.debug("Stream records {} ({})".format(entity, len(records)))
-
-
-def load_config(config_file):
-    global API_KEY
-    global BASE_URL
-    global DOMAIN
-
-    with open(config_file) as f:
-        data = json.load(f)
-
-    API_KEY = data['api_key']
-    DOMAIN = data['domain']
-    BASE_URL = BASE_URL.format(domain=DOMAIN)
-
-
-def load_state(state_file):
-    with open(state_file) as f:
-        state.update(json.load(f))
+logger = stitchstream.get_logger()
 
 
 def load_schema(entity):
@@ -105,7 +60,7 @@ def request(url, params=None):
     params = params or {}
 
     logger.debug("Making request: GET {} {}".format(url, params))
-    response = session.get(url, params=params, auth=(API_KEY, "notused"))
+    response = session.get(url, params=params, auth=(API_KEY, ""))
     logger.debug("Got response code: {}".format(response.status_code))
 
     GET_COUNT += 1
@@ -127,7 +82,7 @@ def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
     logger.info("{}: Starting sync".format(entity))
 
     schema = load_schema(entity)
-    stream_schema(entity, schema)
+    stitchstream.write_schema(entity, schema)
     logger.info("{}: Sent schema".format(entity))
 
     url, params = get_url_and_params(endpoint, **kwargs)
@@ -145,13 +100,13 @@ def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
                 data = transform(data)
 
             items.extend(data)
-            stream_records(entity, data)
+            stitchstream.write_records(entity, data)
             logger.info("{}: Persisted {} records".format(entity, len(data)))
             PERSISTED_COUNT += len(data)
 
         if sync_state:
             state[entity] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
-            stream_state()
+            stitchstream.write_state(state)
 
         if len(data) == PER_PAGE:
             page += 1
@@ -249,7 +204,7 @@ def do_sync():
     # Once all tickets' subitems have been processed, we can update the ticket
     # state to now and push it to the persister.
     state['tickets'] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
-    stream_state()
+    stitchstream.write_state(state)
 
     # Agents, roles, groups, and companies are not filterable, but they have
     # updated_at fields that can be used after grabbing them from the api.
@@ -265,7 +220,7 @@ def do_sync():
 
 def do_check():
     try:
-        request(get_url_and_params("roles", **kwargs))
+        request(get_url_and_params("roles"))
     except requests.exceptions.RequestException as e:
         logger.fatal("Error checking connection using {e.request.url}; "
                      "received status {e.response.status_code}: {e.response.test}".format(e=e))
@@ -273,7 +228,9 @@ def do_check():
 
 
 def main():
-    global QUIET
+    global API_KEY
+    global BASE_URL
+    global DOMAIN
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', help='Config file', required=True)
@@ -282,20 +239,23 @@ def main():
                         help='Test connection only')
     parser.add_argument('-d', '--debug', dest='debug', action='store_true',
                         help='Sets the log level to DEBUG (default INFO)')
-    parser.add_argument('-q', '--quiet', dest='quiet', action='store_true',
-                        help='Do not output to stdout (no persisting)')
-    parser.set_defaults(check=False, debug=False, quiet=False)
+    parser.set_defaults(check=False, debug=False)
     args = parser.parse_args()
-
-    QUIET = args.quiet
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
 
-    load_config(args.config)
+    with open(config_file) as f:
+        data = json.load(f)
+
+    API_KEY = data['api_key']
+    DOMAIN = data['domain']
+    BASE_URL = BASE_URL.format(domain=DOMAIN)
+
     if args.state:
         logger.info("Loading state from " + args.state)
-        load_state(args.state)
+        with open(state_file) as f:
+            state.update(json.load(f))
 
     if args.check:
         do_check()
