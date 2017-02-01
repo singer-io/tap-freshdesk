@@ -144,10 +144,9 @@ def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
             if transform:
                 data = transform(data)
 
-            items.extend(data)
-            stream_records(entity, data)
-            logger.info("{}: Persisted {} records".format(entity, len(data)))
-            PERSISTED_COUNT += len(data)
+            for record in items:
+                stitchstream.write_record(entity, record)
+                PERSISTED_COUNT += 1
 
         if sync_state:
             state[entity] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
