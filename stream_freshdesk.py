@@ -60,7 +60,7 @@ def request(url, params=None):
     params = params or {}
 
     logger.debug("Making request: GET {} {}".format(url, params))
-    response = session.get(url, params=params, auth=(API_KEY, ""))
+    response = requests.get(url, params=params, auth=(API_KEY, ""))
     logger.debug("Got response code: {}".format(response.status_code))
 
     GET_COUNT += 1
@@ -235,17 +235,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', help='Config file', required=True)
     parser.add_argument('-s', '--state', help='State file')
-    parser.add_argument('-t', '--check', dest='check', action='store_true',
-                        help='Test connection only')
     parser.add_argument('-d', '--debug', dest='debug', action='store_true',
                         help='Sets the log level to DEBUG (default INFO)')
-    parser.set_defaults(check=False, debug=False)
+    parser.set_defaults(debug=False)
     args = parser.parse_args()
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
 
-    with open(config_file) as f:
+    with open(args.config) as f:
         data = json.load(f)
 
     API_KEY = data['api_key']
@@ -254,13 +252,10 @@ def main():
 
     if args.state:
         logger.info("Loading state from " + args.state)
-        with open(state_file) as f:
+        with open(args.state) as f:
             state.update(json.load(f))
 
-    if args.check:
-        do_check()
-    else:
-        do_sync()
+    do_sync()
 
 
 if __name__ == '__main__':
