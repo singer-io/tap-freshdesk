@@ -25,7 +25,6 @@ setup(name='tap-freshdesk',
           [console_scripts]
           tap-freshdesk=tap_freshdesk:main
       ''',
-      packages=['tap_freshdesk'],
       package_data = {
           'schemas': [
               'agents.json',
