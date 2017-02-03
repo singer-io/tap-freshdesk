@@ -39,6 +39,7 @@ setup(name='tap-freshdesk',
               'time_entries.json',
           ],
           '': [
+              'LICENSE',
               'VERSION',
           ]
       }
