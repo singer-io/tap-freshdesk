@@ -14,7 +14,7 @@ setup(name='tap-freshdesk',
       author='Stitch',
       url='https://github.com/stitchstreams/stream-freshdesk',
       classifiers=['Programming Language :: Python :: 3 :: Only'],
-      py_modules=['stream_freshdesk'],
+      py_modules=['tap_freshdesk'],
       install_requires=[
           'stitchstream-python>=0.5.0',
           'requests==2.12.4',
@@ -23,11 +23,11 @@ setup(name='tap-freshdesk',
       ],
       entry_points='''
           [console_scripts]
-          stream-freshdesk=stream_freshdesk:main
+          tap-freshdesk=tap_freshdesk:main
       ''',
-      packages=['stream_freshdesk'],
+      packages=['tap_freshdesk'],
       package_data = {
-          'stream_freshdesk': [
+          'schemas': [
               'agents.json',
               'companies.json',
               'contacts.json',
