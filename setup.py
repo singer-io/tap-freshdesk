@@ -3,9 +3,14 @@
 from setuptools import setup, find_packages
 import os.path
 
-setup(name='stream-freshdesk',
-      version='0.1.0',
-      description='Streams FreshDesk data',
+
+with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'VERSION')) as f:
+    version = f.read().strip()
+
+
+setup(name='tap-freshdesk',
+      version=version,
+      description='Taps FreshDesk data',
       author='Stitch',
       url='https://github.com/stitchstreams/stream-freshdesk',
       classifiers=['Programming Language :: Python :: 3 :: Only'],
@@ -32,6 +37,9 @@ setup(name='stream-freshdesk',
               'satisfaction_ratings.json',
               'tickets.json',
               'time_entries.json',
+          ],
+          '': [
+              'VERSION',
           ]
       }
 )
