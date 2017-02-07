@@ -4,12 +4,8 @@ from setuptools import setup, find_packages
 import os.path
 
 
-with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'VERSION')) as f:
-    version = f.read().strip()
-
-
 setup(name='tap-freshdesk',
-      version=version,
+      version='0.1.2',
       description='Taps FreshDesk data',
       author='Stitch',
       url='https://github.com/stitchstreams/tap-freshdesk',
@@ -25,22 +21,4 @@ setup(name='tap-freshdesk',
           [console_scripts]
           tap-freshdesk=tap_freshdesk:main
       ''',
-      packages=['schemas'],
-      package_data = {
-          'schemas': [
-              'agents.json',
-              'companies.json',
-              'contacts.json',
-              'conversations.json',
-              'groups.json',
-              'roles.json',
-              'satisfaction_ratings.json',
-              'tickets.json',
-              'time_entries.json',
-          ],
-          '': [
-              'LICENSE',
-              'VERSION',
-          ]
-      }
 )
