@@ -5,7 +5,7 @@ import os.path
 
 
 setup(name='tap-freshdesk',
-      version='0.1.2',
+      version='0.1.3',
       description='Taps FreshDesk data',
       author='Stitch',
       url='https://github.com/stitchstreams/tap-freshdesk',
