@@ -5,10 +5,10 @@ import os.path
 
 
 setup(name='tap-freshdesk',
-      version='0.1.3',
+      version='0.1.5',
       description='Taps FreshDesk data',
       author='Stitch',
-      url='https://github.com/stitchstreams/tap-freshdesk',
+      url='https://github.com/stitchstreams/stream-freshdesk',
       classifiers=['Programming Language :: Python :: 3 :: Only'],
       py_modules=['tap_freshdesk'],
       install_requires=[
@@ -21,4 +21,18 @@ setup(name='tap-freshdesk',
           [console_scripts]
           tap-freshdesk=tap_freshdesk:main
       ''',
+      packages=['tap_freshdesk'],
+      package_data = {
+          'tap_freshdesk': [
+              'agents.json',
+              'companies.json',
+              'contacts.json',
+              'conversations.json',
+              'groups.json',
+              'roles.json',
+              'satisfaction_ratings.json',
+              'tickets.json',
+              'time_entries.json',
+          ],
+      }
 )
