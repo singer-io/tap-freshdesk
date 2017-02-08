@@ -1,4 +1,4 @@
-# stream-freshdesk
+# tap-freshdesk
 
 
 ---

@@ -83,7 +83,7 @@ def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
     logger.info("{}: Starting sync".format(entity))
 
     schema = load_schema(entity)
-    stitchstream.write_schema(entity, schema)
+    stitchstream.write_schema(entity, schema, "id")
     logger.info("{}: Sent schema".format(entity))
 
     url, params = get_url_and_params(endpoint, **kwargs)
