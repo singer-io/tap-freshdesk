@@ -133,7 +133,7 @@
     "mobile": {
       "type": [
         "null", 
-        "number"
+        "string"
       ]
     }, 
     "created_at": {
