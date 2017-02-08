@@ -4,7 +4,6 @@ import argparse
 import datetime
 import json
 import os
-import sys
 
 import backoff
 import requests
@@ -87,7 +86,7 @@ def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
 
     has_more = True
     page = 1
-    items = []
+    ids = []
     while has_more:
         params['page'] = page
         resp = request(url, params)
@@ -100,7 +99,7 @@ def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
             for record in data:
                 stitchstream.write_record(entity, record)
                 PERSISTED_COUNT += 1
-                items.append(record)
+                ids.append(record['id'])
 
         if sync_state:
             state[entity] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
@@ -111,8 +110,8 @@ def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
         else:
             has_more = False
 
-    logger.info("{}: Sent {} rows".format(entity, len(items)))
-    return items
+    logger.info("{}: Sent {} rows".format(entity, len(ids)))
+    return ids
 
 
 def _transform_custom_fields(items):
@@ -165,12 +164,13 @@ def do_sync():
     # Tickets can be filtered and sorted by last updated, but the custom_fields
     # dict needs transforming. Also, the attachments field can be up to 15MB,
     # so we won't support that for now.
-    tickets = _sync_entity("tickets",
-                           updated_since=state['tickets'],
-                           order_by="updated_at",
-                           order_type="asc",
-                           transform=_transform_tickets,
-                           sync_state=False)
+    state['tickets'] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
+    ticket_ids = _sync_entity("tickets",
+                              updated_since=state['tickets'],
+                              order_by="updated_at",
+                              order_type="asc",
+                              transform=_transform_tickets,
+                              sync_state=False)
 
     # Each ticket has conversations, time_entries, and satisfaction_ratings
     # linked. So let's get those for each ticket that's been updated.
@@ -178,16 +178,16 @@ def do_sync():
     # NOTE!: If these things can update or be created without the ticket being
     # touched, then this approach won't work and we're need to rethink. Maybe
     # look at tickets updated in the last week and iterate through those.
-    for ticket in tickets:
+    for ticket_id in ticket_ids:
         _sync_entity("sub_ticket",
                      entity="conversations",
-                     ticket_id=ticket['id'],
+                     ticket_id=ticket_id,
                      transform=_transform_remove_attachments,
                      sync_state=False)
 
         _sync_entity("sub_ticket",
                      entity="satisfaction_ratings",
-                     ticket_id=ticket['id'],
+                     ticket_id=ticket_id,
                      transform=_transform_satisfaction_ratings,
                      sync_state=False)
 
@@ -195,14 +195,12 @@ def do_sync():
         # Filter that it's been updated since the last time we synced tickets.
         _sync_entity("sub_ticket",
                      entity="time_entries",
-                     ticket_id=ticket['id'],
+                     ticket_id=ticket_id,
                      transform=_mk_updated_at("tickets", "updated_at"),
                      sync_state=False)
 
-
     # Once all tickets' subitems have been processed, we can update the ticket
     # state to now and push it to the persister.
-    state['tickets'] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
     stitchstream.write_state(state)
 
     # Agents, roles, groups, and companies are not filterable, but they have
@@ -217,15 +215,6 @@ def do_sync():
                 .format(DOMAIN, GET_COUNT, PERSISTED_COUNT))
 
 
-def do_check():
-    try:
-        request(get_url_and_params("roles"))
-    except requests.exceptions.RequestException as e:
-        logger.fatal("Error checking connection using {e.request.url}; "
-                     "received status {e.response.status_code}: {e.response.test}".format(e=e))
-        sys.exit(-1)
-
-
 def main():
     global API_KEY
     global BASE_URL
@@ -234,13 +223,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', help='Config file', required=True)
     parser.add_argument('-s', '--state', help='State file')
-    parser.add_argument('-d', '--debug', dest='debug', action='store_true',
-                        help='Sets the log level to DEBUG (default INFO)')
-    parser.set_defaults(debug=False)
     args = parser.parse_args()
-
-    if args.debug:
-        logger.setLevel(logging.DEBUG)
 
     with open(args.config) as f:
         data = json.load(f)
