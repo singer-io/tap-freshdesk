@@ -16,7 +16,6 @@ BASE_URL = "https://{domain}.freshdesk.com"
 PER_PAGE = 100
 DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
 DEFAULT_START_DATE = datetime.datetime(2000, 1, 1).strftime(DATETIME_FMT)
-GET_COUNT = 0
 PERSISTED_COUNT = 0
 
 state = {
@@ -57,14 +56,8 @@ def load_schema(entity):
                       giveup=lambda e: e.response is not None and 400 <= e.response.status_code < 500,
                       factor=2)
 def request(url, params=None):
-    global GET_COUNT
     params = params or {}
-
-    logger.debug("Making request: GET {} {}".format(url, params))
     response = requests.get(url, params=params, auth=(API_KEY, ""))
-    logger.debug("Got response code: {}".format(response.status_code))
-
-    GET_COUNT += 1
     response.raise_for_status()
     return response
 
@@ -168,7 +161,6 @@ def do_sync():
     # Tickets can be filtered and sorted by last updated, but the custom_fields
     # dict needs transforming. Also, the attachments field can be up to 15MB,
     # so we won't support that for now.
-    state['tickets'] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
     ticket_ids = _sync_entity("tickets",
                               updated_since=state['tickets'],
                               order_by="updated_at",
@@ -203,6 +195,8 @@ def do_sync():
                      transform=_mk_updated_at("tickets", "updated_at"),
                      sync_state=False)
 
+    state['tickets'] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
+
     # Once all tickets' subitems have been processed, we can update the ticket
     # state to now and push it to the persister.
     stitchstream.write_state(state)
@@ -215,8 +209,8 @@ def do_sync():
     _sync_entity("companies", transform=_transform_companies)
     _sync_entity("contacts", transform=_transform_custom_fields)
 
-    logger.info("Completed FreshDesk sync for {}. requests: {}, rows synced: {}"
-                .format(DOMAIN, GET_COUNT, PERSISTED_COUNT))
+    logger.info("Completed FreshDesk sync for {}. Rows synced: {}"
+                .format(DOMAIN, PERSISTED_COUNT))
 
 
 def main():

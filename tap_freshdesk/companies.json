@@ -25,7 +25,7 @@
       }
     },
     "id": {
-      "type": ["null", "string"]
+      "type": ["null", "integer"]
     },
     "name": {
       "type": ["null", "string"]
