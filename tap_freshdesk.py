@@ -127,6 +127,13 @@ def _transform_remove_attachments(items):
     return items
 
 
+def _transform_remove_body(items):
+    for item in items:
+        item.pop('body', None)
+
+    return items
+
+
 def _mk_updated_at(entity, cmp_key):
     def _transform_updated_at(items):
         return [item for item in items if item[cmp_key] >= state[entity]]
@@ -137,6 +144,12 @@ def _mk_updated_at(entity, cmp_key):
 def _transform_tickets(items):
     items = _transform_remove_attachments(items)
     items = _transform_custom_fields(items)
+    return items
+
+
+def _transform_conversations(items):
+    items = _transform_remove_attachments(items)
+    items = _transform_remove_body(items)
     return items
 
 
@@ -178,7 +191,7 @@ def do_sync():
         _sync_entity("sub_ticket",
                      entity="conversations",
                      ticket_id=ticket_id,
-                     transform=_transform_remove_attachments,
+                     transform=_transform_conversations,
                      sync_state=False)
 
         _sync_entity("sub_ticket",
