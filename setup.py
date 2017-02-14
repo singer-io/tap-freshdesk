@@ -1,21 +1,17 @@
 #!/usr/bin/env python
 
 from setuptools import setup, find_packages
-import os.path
-
 
 setup(name='tap-freshdesk',
-      version='0.2.2',
-      description='Taps FreshDesk data',
+      version='0.3.0',
+      description='Singer.io tap for extracting data from the Freshdesk API',
       author='Stitch',
-      url='https://github.com/stitchstreams/tap-freshdesk',
+      url='https://github.com/singer-io/tap-freshdesk',
       classifiers=['Programming Language :: Python :: 3 :: Only'],
       py_modules=['tap_freshdesk'],
       install_requires=[
-          'stitchstream-python>=0.6.0',
+          'singer-python>=0.1.0',
           'requests==2.12.4',
-          'backoff==1.3.2',
-          'python-dateutil==2.6.0',
       ],
       entry_points='''
           [console_scripts]
@@ -23,7 +19,7 @@ setup(name='tap-freshdesk',
       ''',
       packages=['tap_freshdesk'],
       package_data = {
-          'tap_freshdesk': [
+          'tap_freshdesk/schemas': [
               'agents.json',
               'companies.json',
               'contacts.json',
@@ -34,5 +30,6 @@ setup(name='tap-freshdesk',
               'tickets.json',
               'time_entries.json',
           ],
-      }
+      },
+      include_package_data=True,
 )

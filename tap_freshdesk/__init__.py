@@ -1,31 +1,23 @@
 #!/usr/bin/env python3
 
-import argparse
 import datetime
-import json
-import os
 
-import backoff
 import requests
-import stitchstream
+import singer
+
+from . import utils
 
 
-API_KEY = None
-DOMAIN = None
-BASE_URL = "https://{domain}.freshdesk.com"
 PER_PAGE = 100
-DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
-DEFAULT_START_DATE = datetime.datetime(2000, 1, 1).strftime(DATETIME_FMT)
-PERSISTED_COUNT = 0
+CONFIG = {
+    'base_url': "https://{}.freshdesk.com",
+    'default_start_date': utils.strftime(datetime.datetime.utcnow() - datetime.timedelta(days=365)),
 
-state = {
-    "tickets": DEFAULT_START_DATE,
-    "agents": DEFAULT_START_DATE,
-    "roles": DEFAULT_START_DATE,
-    "groups": DEFAULT_START_DATE,
-    "companies": DEFAULT_START_DATE,
-    "contacts": DEFAULT_START_DATE,
+    # in config.json
+    'api_key': None,
+    'domain': None,
 }
+STATE = {}
 
 endpoints = {
     "tickets": "/api/v2/tickets",
@@ -37,46 +29,29 @@ endpoints = {
     "contacts": "/api/v2/contacts",
 }
 
-logger = stitchstream.get_logger()
+logger = singer.get_logger()
 
 
-def load_schema(entity):
-    path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)),
-        "tap_freshdesk",
-        "{}.json".format(entity))
-
-    with open(path) as f:
-        return json.load(f)
-
-
-@backoff.on_exception(backoff.expo,
-                      (requests.exceptions.RequestException),
-                      max_tries=5,
-                      giveup=lambda e: e.response is not None and 400 <= e.response.status_code < 500,
-                      factor=2)
 def request(url, params=None):
     params = params or {}
-    response = requests.get(url, params=params, auth=(API_KEY, ""))
+    response = requests.get(url, params=params, auth=(CONFIG['api_key'], ""))
     response.raise_for_status()
     return response
 
 
 def get_url_and_params(endpoint, **kwargs):
-    url = BASE_URL + endpoints[endpoint]
+    url = CONFIG['base_url'].format(CONFIG['domain']) + endpoints[endpoint]
     params = {k: v for k, v in kwargs.items() if k not in url}
     url = url.format(**kwargs)
     return (url, params)
 
 
 def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
-    global PERSISTED_COUNT
-
     entity = kwargs.get("entity", endpoint)
     logger.info("{}: Starting sync".format(entity))
 
-    schema = load_schema(entity)
-    stitchstream.write_schema(entity, schema, "id")
+    schema = utils.load_schema(entity)
+    singer.write_schema(entity, schema, "id")
     logger.info("{}: Sent schema".format(entity))
 
     url, params = get_url_and_params(endpoint, **kwargs)
@@ -94,13 +69,12 @@ def _sync_entity(endpoint, transform=None, sync_state=True, **kwargs):
                 data = transform(data)
 
             for record in data:
-                stitchstream.write_record(entity, record)
-                PERSISTED_COUNT += 1
+                singer.write_record(entity, record)
                 ids.append(record['id'])
 
         if sync_state:
-            state[entity] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
-            stitchstream.write_state(state)
+            utils.update_state(STATE, entity, datetime.datetime.utcnow())
+            singer.write_state(STATE)
 
         if len(data) == PER_PAGE:
             page += 1
@@ -135,8 +109,9 @@ def _transform_remove_body(items):
 
 
 def _mk_updated_at(entity, cmp_key):
+    start_time = STATE.get(entity, CONFIG['default_start_date'])
     def _transform_updated_at(items):
-        return [item for item in items if item[cmp_key] >= state[entity]]
+        return [item for item in items if item[cmp_key] >= start_time]
 
     return _transform_updated_at
 
@@ -169,13 +144,13 @@ def _transform_companies(items):
 
 
 def do_sync():
-    logger.info("Starting FreshDesk sync for {}".format(DOMAIN))
+    logger.info("Starting FreshDesk sync")
 
     # Tickets can be filtered and sorted by last updated, but the custom_fields
     # dict needs transforming. Also, the attachments field can be up to 15MB,
     # so we won't support that for now.
     ticket_ids = _sync_entity("tickets",
-                              updated_since=state['tickets'],
+                              updated_since=STATE.get('tickets', CONFIG['default_start_date']),
                               order_by="updated_at",
                               order_type="asc",
                               transform=_transform_tickets,
@@ -208,11 +183,10 @@ def do_sync():
                      transform=_mk_updated_at("tickets", "updated_at"),
                      sync_state=False)
 
-    state['tickets'] = datetime.datetime.utcnow().strftime(DATETIME_FMT)
-
     # Once all tickets' subitems have been processed, we can update the ticket
     # state to now and push it to the persister.
-    stitchstream.write_state(state)
+    utils.update_state(STATE, "tickets", datetime.datetime.utcnow())
+    singer.write_state(STATE)
 
     # Agents, roles, groups, and companies are not filterable, but they have
     # updated_at fields that can be used after grabbing them from the api.
@@ -222,32 +196,14 @@ def do_sync():
     _sync_entity("companies", transform=_transform_companies)
     _sync_entity("contacts", transform=_transform_custom_fields)
 
-    logger.info("Completed FreshDesk sync for {}. Rows synced: {}"
-                .format(DOMAIN, PERSISTED_COUNT))
+    logger.info("Completed sync")
 
 
 def main():
-    global API_KEY
-    global BASE_URL
-    global DOMAIN
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', help='Config file', required=True)
-    parser.add_argument('-s', '--state', help='State file')
-    args = parser.parse_args()
-
-    with open(args.config) as f:
-        data = json.load(f)
-
-    API_KEY = data['api_key']
-    DOMAIN = data['domain']
-    BASE_URL = BASE_URL.format(domain=DOMAIN)
-
+    args = utils.parse_args()
+    CONFIG.update(utils.load_json(args.config))
     if args.state:
-        logger.info("Loading state from " + args.state)
-        with open(args.state) as f:
-            state.update(json.load(f))
-
+        STATE.update(utils.load_json(args.state))
     do_sync()
 
 

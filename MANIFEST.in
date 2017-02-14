@@ -1,1 +1,2 @@
 include LICENSE
+include tap_freshdesk/schemas/*.json
