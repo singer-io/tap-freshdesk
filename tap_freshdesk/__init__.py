@@ -5,7 +5,7 @@ import datetime
 import requests
 import singer
 
-from . import utils
+from tap_freshdesk import utils
 
 
 PER_PAGE = 100
@@ -27,6 +27,7 @@ endpoints = {
 }
 
 logger = singer.get_logger()
+session = requests.Session()
 
 
 def get_url(endpoint, **kwargs):
@@ -40,12 +41,14 @@ def get_start(entity):
     return STATE[entity]
 
 
-def gen_request(endpoint, params=None):
+def gen_request(url, params=None):
     params = params or {}
     page = 1
     while True:
         params['page'] = page
-        resp = requests.get(url, params=params, auth=(CONFIG['api_key'], ""))
+        req = requests.Request('GET', url, params=params, auth=(CONFIG['api_key'], "")).prepare()
+        logger.info("GET {}".format(req.url))
+        resp = session.send(req)
         resp.raise_for_status()
         data = resp.json()
 
@@ -79,16 +82,16 @@ def sync_tickets():
         row['custom_fields'] = transform_dict(row['custom_fields'])
 
         # get all sub-entities and save them
-        for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="conversations"):
+        for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="conversations")):
             subrow.pop("attachments", None)
             subrow.pop("body", None)
             singer.write_record("conversations", subrow)
 
-        for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="satisfaction_ratings"):
+        for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="satisfaction_ratings")):
             subrow['ratings'] = transform_dict(subrow['ratings'], key_key="question")
             singer.write_record("satisfaction_ratings", subrow)
 
-        for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="time_entries"):
+        for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="time_entries")):
             if subrow['updated_at'] >= start:
                 singer.write_record("time_entries", subrow)
 
@@ -147,8 +150,10 @@ def do_sync():
 def main():
     args = utils.parse_args()
 
+    logger.setLevel(0)
+
     config = utils.load_json(args.config)
-    check_config(config, ['api_key', 'domain'])
+    utils.check_config(config, ['api_key', 'domain'])
     CONFIG.update(config)
 
     if args.state:
