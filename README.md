@@ -1,6 +1,22 @@
-# stream-freshdesk
+# tap-freshdesk
 
-A data stream generator for the Freshdesk REST API, written in python 3.
+This is a [Singer](https://singer.io) tap that produces JSON-formatted data following the [singer spec](https://github.com/singer-io/getting-started/blob/master/SPEC.md).
+
+This tap:
+- Pulls raw data from Freshdesk's [REST API](https://developer.freshdesk.com/api/)
+- Extracts the following resources from Freshdesk:
+  - [Agents](https://developer.freshdesk.com/api/#agents)
+  - [Companies](https://developer.freshdesk.com/api/#companies)
+  - [Contacts](https://developer.freshdesk.com/api/#contacts)
+  - [Conversations](https://developer.freshdesk.com/api/#conversations)
+  - [Groups](https://developer.freshdesk.com/api/#groups)
+  - [Roles](https://developer.freshdesk.com/api/#roles)
+  - [Satisfaction Ratings](https://developer.freshdesk.com/api/#satisfaction-ratings)
+  - [Tickets](https://developer.freshdesk.com/api/#tickets)
+  - [Time Entries](https://developer.freshdesk.com/api/#time-entries)
+- Outputs the [schema for each resource](tap_freshdesk/schemas/)
+- Incrementally pulls data based on the input state
+
 
 ## Quick start
 
@@ -28,8 +44,8 @@ A data stream generator for the Freshdesk REST API, written in python 3.
 
 4. [Optional] Create the initial state file
 
-    You can provide JSON file that contains a date for the API endpoints 
-    to force the application to only fetch data newer than those dates. 
+    You can provide JSON file that contains a date for the API endpoints
+    to force the application to only fetch data newer than those dates.
     If you omit the file it will fetch all Freshdesk data
 
     ```json
