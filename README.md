@@ -1,6 +1,6 @@
 # tap-freshdesk
 
-This is a [Singer](https://singer.io) tap that produces JSON-formatted data following the [singer spec](https://github.com/singer-io/getting-started/blob/master/SPEC.md).
+This is a [Singer](https://singer.io) tap that produces JSON-formatted data following the [Singer spec](https://github.com/singer-io/getting-started/blob/master/SPEC.md).
 
 This tap:
 - Pulls raw data from Freshdesk's [REST API](https://developer.freshdesk.com/api/)
