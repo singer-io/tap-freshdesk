@@ -6,12 +6,8 @@ A data stream generator for the Freshdesk REST API, written in python 3.
 
 1. Install
 
-    Clone this repository, and then install using setup.py. We recommend using a virtualenv:
-
     ```bash
-    > virtualenv -p python 3 venv
-    > source venv/bin/activate
-    > python setup.py install
+    > pip install tap-freshdesk
     ```
 
 2. Get your Freshdesk API Key
@@ -21,7 +17,7 @@ A data stream generator for the Freshdesk REST API, written in python 3.
 
 3. Create the config file
 
-    Create a JSON file containing the api token you just found and
+    Create a JSON file called `config.json` containing the api token you just found and
     the subdomain to your Freshdesk account. The subdomain will take the format
     `subdomain.freshdesk.com`.
 
