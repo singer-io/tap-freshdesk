@@ -78,19 +78,23 @@ def sync_tickets():
         'order_type': "asc",
     }
     for row in gen_request(get_url("tickets"), params):
+        logger.info("Ticket {}: Syncing".format(row['id']))
         row.pop('attachments', None)
         row['custom_fields'] = transform_dict(row['custom_fields'])
 
         # get all sub-entities and save them
+        logger.info("Ticket {}: Syncing conversations".format(row['id']))
         for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="conversations")):
             subrow.pop("attachments", None)
             subrow.pop("body", None)
             singer.write_record("conversations", subrow)
 
+        logger.info("Ticket {}: Syncing satisfaction ratings".format(row['id']))
         for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="satisfaction_ratings")):
             subrow['ratings'] = transform_dict(subrow['ratings'], key_key="question")
             singer.write_record("satisfaction_ratings", subrow)
 
+        logger.info("Ticket {}: Syncing time entries".format(row['id']))
         for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="time_entries")):
             if subrow['updated_at'] >= start:
                 singer.write_record("time_entries", subrow)
@@ -104,34 +108,16 @@ def sync_time_filtered(entity):
     singer.write_schema(entity, utils.load_schema(entity), ["id"])
     start = get_start(entity)
 
+    logger.info("Syncing {} from {}".format(entity, start))
     for row in gen_request(get_url(entity)):
         if row['updated_at'] >= start:
+            if 'custom_fields' in row:
+                row['custom_fields'] = transform_dict(row.get('custom_fields', {}))
+
             utils.update_state(STATE, entity, row['updated_at'])
             singer.write_record(entity, row)
 
     singer.write_state(STATE)
-
-
-def sync_companies():
-    singer.write_schema("companies", utils.load_schema("companies"), ["id"])
-    start = get_start("companies")
-
-    for row in gen_request(get_url("companies")):
-        if row['updated_at'] >= start:
-            row['custom_fields'] = transform_dict(row.get('custom_fields', {}))
-            utils.update_state(STATE, "companies", row['updated_at'])
-            singer.write_record("companies", row)
-
-    singer.write_state(STATE)
-
-
-def sync_contacts():
-    singer.write_schema("contacts", utils.load_schema("contacts"), ["id"])
-
-    for row in gen_request(get_url("contacts")):
-        row['custom_fields'] = transform_dict(row.get('custom_fields', {}))
-        utils.update_state(STATE, "contacts", row['updated_at'])
-        singer.write_record("contacts", row)
 
 
 def do_sync():
@@ -141,8 +127,8 @@ def do_sync():
     sync_time_filtered("agents")
     sync_time_filtered("roles")
     sync_time_filtered("groups")
-    sync_companies()
-    sync_contacts()
+    sync_time_filtered("contacts")
+    sync_time_filtered("companies")
 
     logger.info("Completed sync")
 
