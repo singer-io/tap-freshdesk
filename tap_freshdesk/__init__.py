@@ -13,6 +13,7 @@ BASE_URL = "https://{}.freshdesk.com"
 CONFIG = {
     'api_key': None,
     'domain': None,
+    'start_date': None,
 }
 STATE = {}
 
@@ -36,7 +37,7 @@ def get_url(endpoint, **kwargs):
 
 def get_start(entity):
     if entity not in STATE:
-        STATE[entity] = utils.strftime(datetime.datetime.utcnow() - datetime.timedelta(days=365))
+        STATE[entity] = CONFIG['start_date']
 
     return STATE[entity]
 
@@ -139,7 +140,7 @@ def main():
     logger.setLevel(0)
 
     config = utils.load_json(args.config)
-    utils.check_config(config, ['api_key', 'domain'])
+    utils.check_config(config, ['api_key', 'domain', 'start_date'])
     CONFIG.update(config)
 
     if args.state:
