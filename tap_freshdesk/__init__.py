@@ -58,8 +58,8 @@ def gen_request(url, params=None):
 
         if len(data) == PER_PAGE:
             page += 1
-
-        break
+        else:
+            break
 
 
 def transform_dict(d, key_key="name", value_key="value"):
