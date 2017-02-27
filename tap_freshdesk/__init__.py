@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import datetime
+import sys
 
 import requests
 import singer
@@ -50,7 +51,11 @@ def gen_request(url, params=None):
         req = requests.Request('GET', url, params=params, auth=(CONFIG['api_key'], "")).prepare()
         logger.info("GET {}".format(req.url))
         resp = session.send(req)
-        resp.raise_for_status()
+
+        if resp.status_code >= 400:
+            logger.error("GET {} [{} - {}]".format(req.url, resp.status_code, resp.content))
+            sys.exit(1)
+
         data = resp.json()
 
         for row in data:
