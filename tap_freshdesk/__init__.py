@@ -9,13 +9,10 @@ import singer
 from tap_freshdesk import utils
 
 
+REQUIRED_CONFIG_KEYS = ['api_key', 'domain', 'start_date']
 PER_PAGE = 100
 BASE_URL = "https://{}.freshdesk.com"
-CONFIG = {
-    'api_key': None,
-    'domain': None,
-    'start_date': None,
-}
+CONFIG = {}
 STATE = {}
 
 endpoints = {
@@ -93,12 +90,14 @@ def sync_tickets():
         for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="conversations")):
             subrow.pop("attachments", None)
             subrow.pop("body", None)
-            singer.write_record("conversations", subrow)
+            if subrow['updated_at'] >= start:
+                singer.write_record("conversations", subrow)
 
         logger.info("Ticket {}: Syncing satisfaction ratings".format(row['id']))
         for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="satisfaction_ratings")):
             subrow['ratings'] = transform_dict(subrow['ratings'], key_key="question")
-            singer.write_record("satisfaction_ratings", subrow)
+            if subrow['updated_at'] >= start:
+                singer.write_record("satisfaction_ratings", subrow)
 
         logger.info("Ticket {}: Syncing time entries".format(row['id']))
         for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="time_entries")):
@@ -118,7 +117,7 @@ def sync_time_filtered(entity):
     for row in gen_request(get_url(entity)):
         if row['updated_at'] >= start:
             if 'custom_fields' in row:
-                row['custom_fields'] = transform_dict(row.get('custom_fields', {}))
+                row['custom_fields'] = transform_dict(row['custom_fields'])
 
             utils.update_state(STATE, entity, row['updated_at'])
             singer.write_record(entity, row)
@@ -140,17 +139,9 @@ def do_sync():
 
 
 def main():
-    args = utils.parse_args()
-
-    logger.setLevel(0)
-
-    config = utils.load_json(args.config)
-    utils.check_config(config, ['api_key', 'domain', 'start_date'])
+    config, state = utils.parse_args(REQUIRED_CONFIG_KEYS)
     CONFIG.update(config)
-
-    if args.state:
-        STATE.update(utils.load_json(args.state))
-
+    STATE.update(state)
     do_sync()
 
 

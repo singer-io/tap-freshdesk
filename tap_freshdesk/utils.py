@@ -1,9 +1,7 @@
 import argparse
 import datetime
-import functools
 import json
 import os
-import threading
 
 DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -14,26 +12,6 @@ def strptime(dt):
 
 def strftime(dt):
     return dt.strftime(DATETIME_FMT)
-
-
-def ratelimit(limit, every):
-    def limitdecorator(fn):
-        semaphore = threading.Semaphore(limit)
-
-        @functools.wraps(fn)
-        def wrapper(*args, **kwargs):
-            semaphore.acquire()
-            try:
-                result = fn(*args, **kwargs)
-            finally:
-                timer = threading.Timer(every, semaphore.release)
-                timer.setDaemon(True)  # allows the timer to be canceled on exit
-                timer.start()
-                return result
-
-        return wrapper
-
-    return limitdecorator
 
 
 def chunk(l, n):
@@ -68,11 +46,21 @@ def update_state(state, entity, dt):
         state[entity] = dt
 
 
-def parse_args():
+def parse_args(required_config_keys):
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', help='Config file', required=True)
     parser.add_argument('-s', '--state', help='State file')
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    config = load_json(args.config)
+    check_config(config, required_config_keys)
+
+    if args.state:
+        state = utils.load_json(args.state)
+    else:
+        state = {}
+
+    return config, state
 
 
 def check_config(config, required_keys):
