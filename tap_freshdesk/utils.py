@@ -1,7 +1,10 @@
 import argparse
+import collections
 import datetime
+import functools
 import json
 import os
+import time
 
 DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -12,6 +15,28 @@ def strptime(dt):
 
 def strftime(dt):
     return dt.strftime(DATETIME_FMT)
+
+
+def ratelimit(limit, every):
+    def limitdecorator(fn):
+        times = collections.deque()
+
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            if len(times) >= limit:
+                t0 = times.pop()
+                t = time.time()
+                sleep_time = every - (t - t0)
+                if sleep_time > 0:
+                    logger.info("t0 = {}, t = {}, sleeping for {} seconds".format(t0, t, sleep_time))
+                    time.sleep(sleep_time)
+
+            times.appendleft(time.time())
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    return limitdecorator
 
 
 def chunk(l, n):

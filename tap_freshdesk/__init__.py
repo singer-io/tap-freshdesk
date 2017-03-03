@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-import datetime
-import sys
-
 import requests
 import singer
 
@@ -40,6 +37,7 @@ def get_start(entity):
     return STATE[entity]
 
 
+@ratelimit(2500, 60 * 60)
 def gen_request(url, params=None):
     params = params or {}
     page = 1
@@ -51,7 +49,7 @@ def gen_request(url, params=None):
 
         if resp.status_code >= 400:
             logger.error("GET {} [{} - {}]".format(req.url, resp.status_code, resp.content))
-            sys.exit(1)
+            resp.raise_for_status()
 
         data = resp.json()
 
