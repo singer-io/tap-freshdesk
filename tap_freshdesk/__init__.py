@@ -37,7 +37,7 @@ def get_start(entity):
     return STATE[entity]
 
 
-@ratelimit(2500, 60 * 60)
+@utils.ratelimit(2500, 60 * 60)
 def gen_request(url, params=None):
     params = params or {}
     page = 1
