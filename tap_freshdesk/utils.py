@@ -81,7 +81,7 @@ def parse_args(required_config_keys):
     check_config(config, required_config_keys)
 
     if args.state:
-        state = utils.load_json(args.state)
+        state = load_json(args.state)
     else:
         state = {}
 
