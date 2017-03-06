@@ -28,7 +28,6 @@ def ratelimit(limit, every):
                 t = time.time()
                 sleep_time = every - (t - t0)
                 if sleep_time > 0:
-                    logger.info("t0 = {}, t = {}, sleeping for {} seconds".format(t0, t, sleep_time))
                     time.sleep(sleep_time)
 
             times.appendleft(time.time())

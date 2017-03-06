@@ -30,6 +30,24 @@ def get_url(endpoint, **kwargs):
     return BASE_URL.format(CONFIG['domain']) + endpoints[endpoint].format(**kwargs)
 
 
+def request(url, params=None):
+    params = params or {}
+    req = requests.Request('GET', url, params=params, auth=(CONFIG['api_key'], "")).prepare()
+    logger.info("GET {}".format(req.url))
+    resp = session.send(req)
+
+    if resp.status_code >= 400:
+        logger.error("GET {} [{} - {}]".format(req.url, resp.status_code, resp.content))
+        resp.raise_for_status()
+
+    if 'Retry-After' in resp.headers:
+        retry_after = int(resp.headers['Retry-After'])
+        logger.info("Rate limit reached. Sleeping for {} seconds".format(retry_after))
+        time.sleep(retry_after)
+
+    return resp
+
+
 def get_start(entity):
     if entity not in STATE:
         STATE[entity] = CONFIG['start_date']
@@ -37,22 +55,12 @@ def get_start(entity):
     return STATE[entity]
 
 
-@utils.ratelimit(2500, 60 * 60)
 def gen_request(url, params=None):
     params = params or {}
     page = 1
     while True:
         params['page'] = page
-        req = requests.Request('GET', url, params=params, auth=(CONFIG['api_key'], "")).prepare()
-        logger.info("GET {}".format(req.url))
-        resp = session.send(req)
-
-        if resp.status_code >= 400:
-            logger.error("GET {} [{} - {}]".format(req.url, resp.status_code, resp.content))
-            resp.raise_for_status()
-
-        data = resp.json()
-
+        data = request(url, params).json()
         for row in data:
             yield row
 
