@@ -57,6 +57,7 @@ def get_start(entity):
 
 def gen_request(url, params=None):
     params = params or {}
+    params["per_page"] = PER_PAGE
     page = 1
     while True:
         params['page'] = page
@@ -86,7 +87,7 @@ def sync_tickets():
         'order_by': "updated_at",
         'order_type': "asc",
     }
-    for row in gen_request(get_url("tickets"), params):
+    for i, row in enumerate(gen_request(get_url("tickets"), params)):
         logger.info("Ticket {}: Syncing".format(row['id']))
         row.pop('attachments', None)
         row['custom_fields'] = transform_dict(row['custom_fields'])
