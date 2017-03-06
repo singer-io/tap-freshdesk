@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import sys
+
 import requests
 import singer
 
@@ -36,14 +38,15 @@ def request(url, params=None):
     logger.info("GET {}".format(req.url))
     resp = session.send(req)
 
-    if resp.status_code >= 400:
-        logger.error("GET {} [{} - {}]".format(req.url, resp.status_code, resp.content))
-        resp.raise_for_status()
-
     if 'Retry-After' in resp.headers:
         retry_after = int(resp.headers['Retry-After'])
         logger.info("Rate limit reached. Sleeping for {} seconds".format(retry_after))
         time.sleep(retry_after)
+        return request(url, params)
+
+    elif resp.status_code >= 400:
+        logger.error("GET {} [{} - {}]".format(req.url, resp.status_code, resp.content))
+        sys.exit(1)
 
     return resp
 
