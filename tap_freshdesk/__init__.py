@@ -41,7 +41,11 @@ def get_url(endpoint, **kwargs):
                       factor=2)
 def request(url, params=None):
     params = params or {}
-    req = requests.Request('GET', url, params=params, auth=(CONFIG['api_key'], "")).prepare()
+    headers = {}
+    if 'user_agent' in CONFIG:
+        headers['User-Agent'] = CONFIG['user_agent']
+
+    req = requests.Request('GET', url, params=params, auth=(CONFIG['api_key'], ""), headers=headers).prepare()
     logger.info("GET {}".format(req.url))
     resp = session.send(req)
 
