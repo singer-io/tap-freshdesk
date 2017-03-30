@@ -33,7 +33,7 @@ def get_url(endpoint, **kwargs):
     return BASE_URL.format(CONFIG['domain']) + endpoints[endpoint].format(**kwargs)
 
 
-@utils.ratelimit(50, 60)
+@utils.ratelimit(1, 1)
 def request(url, params=None):
     params = params or {}
     headers = {}
