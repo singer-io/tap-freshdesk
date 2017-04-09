@@ -6,7 +6,7 @@ import time
 import requests
 import singer
 
-from tap_freshdesk import utils
+from singer import utils
 
 
 REQUIRED_CONFIG_KEYS = ['api_key', 'domain', 'start_date']
