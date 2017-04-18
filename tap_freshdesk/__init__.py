@@ -33,7 +33,7 @@ def get_url(endpoint, **kwargs):
     return BASE_URL.format(CONFIG['domain']) + endpoints[endpoint].format(**kwargs)
 
 
-@utils.ratelimit(1, 1)
+@utils.ratelimit(1, 2)
 def request(url, params=None):
     params = params or {}
     headers = {}
@@ -148,7 +148,8 @@ def do_sync():
     sync_time_filtered("agents")
     sync_time_filtered("roles")
     sync_time_filtered("groups")
-    sync_time_filtered("contacts")
+    # commenting out this high-volume endpoint for now
+    #sync_time_filtered("contacts")
     sync_time_filtered("companies")
 
     logger.info("Completed sync")
