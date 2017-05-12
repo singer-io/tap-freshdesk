@@ -4,6 +4,7 @@ import sys
 import time
 
 import requests
+from requests.exceptions import HTTPError
 import singer
 
 from tap_freshdesk import utils
@@ -50,9 +51,7 @@ def request(url, params=None):
         time.sleep(retry_after)
         return request(url, params)
 
-    elif resp.status_code >= 400:
-        logger.error("GET {} [{} - {}]".format(req.url, resp.status_code, resp.content))
-        sys.exit(1)
+    resp.raise_for_status()
 
     return resp
 
@@ -109,16 +108,29 @@ def sync_tickets():
             if subrow['updated_at'] >= start:
                 singer.write_record("conversations", subrow)
 
-        logger.info("Ticket {}: Syncing satisfaction ratings".format(row['id']))
-        for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="satisfaction_ratings")):
-            subrow['ratings'] = transform_dict(subrow['ratings'], key_key="question")
-            if subrow['updated_at'] >= start:
-                singer.write_record("satisfaction_ratings", subrow)
+        try:
+            logger.info("Ticket {}: Syncing satisfaction ratings".format(row['id']))
+            for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="satisfaction_ratings")):
+                subrow['ratings'] = transform_dict(subrow['ratings'], key_key="question")
+                if subrow['updated_at'] >= start:
+                    singer.write_record("satisfaction_ratings", subrow)
+        except HTTPError as e:
+            if e.response.status_code == 403:
+                logger.info("The Surveys feature is unavailable. Skipping the satisfaction_ratings stream.")
+            else:
+                raise
 
-        logger.info("Ticket {}: Syncing time entries".format(row['id']))
-        for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="time_entries")):
-            if subrow['updated_at'] >= start:
-                singer.write_record("time_entries", subrow)
+        try:
+            logger.info("Ticket {}: Syncing time entries".format(row['id']))
+            for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="time_entries")):
+                if subrow['updated_at'] >= start:
+                    singer.write_record("time_entries", subrow)
+
+        except HTTPError as e:
+            if e.response.status_code == 403:
+                logger.info("The Timesheets feature is unavailable. Skipping the time_entries stream.")
+            else:
+                raise
 
         utils.update_state(STATE, "tickets", row['updated_at'])
         singer.write_record("tickets", row)
@@ -144,13 +156,17 @@ def sync_time_filtered(entity):
 def do_sync():
     logger.info("Starting FreshDesk sync")
 
-    sync_tickets()
-    sync_time_filtered("agents")
-    sync_time_filtered("roles")
-    sync_time_filtered("groups")
-    # commenting out this high-volume endpoint for now
-    #sync_time_filtered("contacts")
-    sync_time_filtered("companies")
+    try:
+        sync_tickets()
+        sync_time_filtered("agents")
+        sync_time_filtered("roles")
+        sync_time_filtered("groups")
+        # commenting out this high-volume endpoint for now
+        #sync_time_filtered("contacts")
+        sync_time_filtered("companies")
+    except HTTPError as e:
+        logger.error("GET %s [%s - %s]", e.request.url, e.response.status_code, e.response.content)
+        sys.exit(1)
 
     logger.info("Completed sync")
 
