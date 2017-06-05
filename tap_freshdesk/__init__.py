@@ -3,6 +3,7 @@
 import sys
 import time
 
+import backoff
 import requests
 from requests.exceptions import HTTPError
 import singer
@@ -34,6 +35,11 @@ def get_url(endpoint, **kwargs):
     return BASE_URL.format(CONFIG['domain']) + endpoints[endpoint].format(**kwargs)
 
 
+@backoff.on_exception(backoff.expo,
+                      (requests.exceptions.RequestException),
+                      max_tries=5,
+                      giveup=lambda e: e.response is not None and 400 <= e.response.status_code < 500,
+                      factor=2)
 @utils.ratelimit(1, 2)
 def request(url, params=None):
     params = params or {}
