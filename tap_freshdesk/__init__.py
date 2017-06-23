@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import collections
+import functools
 import sys
 import time
 
@@ -33,7 +35,6 @@ session = requests.Session()
 
 def get_url(endpoint, **kwargs):
     return BASE_URL.format(CONFIG['domain']) + endpoints[endpoint].format(**kwargs)
-
 
 @backoff.on_exception(backoff.expo,
                       (requests.exceptions.RequestException),
@@ -72,7 +73,7 @@ def get_start(entity):
 def gen_request(url, params=None):
     params = params or {}
     params["per_page"] = PER_PAGE
-    page = 1
+    page = STATE.get('page', 1)
     while True:
         params['page'] = page
         data = request(url, params).json()
@@ -81,8 +82,13 @@ def gen_request(url, params=None):
 
         if len(data) == PER_PAGE:
             page += 1
+            STATE['page'] = page
+            singer.write_state(STATE)
         else:
             break
+
+    STATE.pop('page', None)
+    sincer.write_state(STATE)
 
 
 def transform_dict(d, key_key="name", value_key="value"):
@@ -101,6 +107,8 @@ def sync_tickets():
         'order_by': "updated_at",
         'order_type': "asc",
     }
+    last_updated = start
+
     for i, row in enumerate(gen_request(get_url("tickets"), params)):
         logger.info("Ticket {}: Syncing".format(row['id']))
         row.pop('attachments', None)
@@ -138,9 +146,11 @@ def sync_tickets():
             else:
                 raise
 
-        utils.update_state(STATE, "tickets", row['updated_at'])
+        last_updated = max(row['updated_at'], last_updated)
         singer.write_record("tickets", row)
-        singer.write_state(STATE)
+
+    utils.update_state(STATE, "tickets", last_updated)
+    singer.write_state(STATE)
 
 
 def sync_time_filtered(entity):
@@ -154,25 +164,38 @@ def sync_time_filtered(entity):
                 row['custom_fields'] = transform_dict(row['custom_fields'])
 
             utils.update_state(STATE, entity, row['updated_at'])
+            singer.write_state(STATE)
             singer.write_record(entity, row)
 
     singer.write_state(STATE)
 
 
+Stream = collections.namedtuple('Stream', ['name', 'sync'])
+STREAMS = [
+    Stream('tickets', sync_tickets),
+    Stream('agents', functools.partial(sync_time_filtered, 'agents')),
+    Stream('roles', functools.partial(sync_time_filtered, 'roles')),
+    Stream('groups', functools.partial(sync_time_filtered, 'groups')),
+    # commenting out this high-volume endpoint for now
+    # Stream('contacts', functools.partial(sync_time_filtered, 'contacts')),
+    Stream('companies', functools.partial(sync_time_filtered, 'companies')),
+]
+
+
 def do_sync():
     logger.info("Starting FreshDesk sync")
 
-    try:
-        sync_tickets()
-        sync_time_filtered("agents")
-        sync_time_filtered("roles")
-        sync_time_filtered("groups")
-        # commenting out this high-volume endpoint for now
-        #sync_time_filtered("contacts")
-        sync_time_filtered("companies")
-    except HTTPError as e:
-        logger.error("GET %s [%s - %s]", e.request.url, e.response.status_code, e.response.content)
-        sys.exit(1)
+    for name, sync in STREAMS.items():
+        if STATE.get('active_stream', name) != name:
+            continue
+
+        STATE['active_stream'] = name
+        singer.write_state(STATE)
+
+        sync()
+
+        STATE.pop('active_stream', None)
+        singer.write_state(STATE)
 
     logger.info("Completed sync")
 
