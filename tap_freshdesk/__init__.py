@@ -85,10 +85,15 @@ def gen_request(url, params=None):
             break
 
 
-def transform_dict(d, key_key="name", value_key="value"):
+def transform_dict(d, key_key="name", value_key="value", force_str=False):
     # Custom fields are expected to be strings, but sometimes the API sends
     # booleans. We cast those to strings to match the schema.
-    return [{key_key: k, value_key: str(v).lower()} for k, v in d.items()]
+    rtn = []
+    for k, v in d.items():
+        if force_str:
+            v = str(v).lower()
+        rtn.append({key_key: k, value_key: v})
+    return rtn
 
 
 def sync_tickets():
@@ -106,7 +111,7 @@ def sync_tickets():
     for i, row in enumerate(gen_request(get_url("tickets"), params)):
         logger.info("Ticket {}: Syncing".format(row['id']))
         row.pop('attachments', None)
-        row['custom_fields'] = transform_dict(row['custom_fields'])
+        row['custom_fields'] = transform_dict(row['custom_fields'], force_str=True)
 
         # get all sub-entities and save them
         logger.info("Ticket {}: Syncing conversations".format(row['id']))
@@ -153,7 +158,7 @@ def sync_time_filtered(entity):
     for row in gen_request(get_url(entity)):
         if row['updated_at'] >= start:
             if 'custom_fields' in row:
-                row['custom_fields'] = transform_dict(row['custom_fields'])
+                row['custom_fields'] = transform_dict(row['custom_fields'], force_str=True)
 
             utils.update_state(STATE, entity, row['updated_at'])
             singer.write_record(entity, row)
