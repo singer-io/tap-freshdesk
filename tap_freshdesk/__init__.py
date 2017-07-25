@@ -86,7 +86,9 @@ def gen_request(url, params=None):
 
 
 def transform_dict(d, key_key="name", value_key="value"):
-    return [{key_key: k, value_key: v} for k, v in d.items()]
+    # Custom fields are expected to be strings, but sometimes the API sends
+    # booleans. We cast those to strings to match the schema.
+    return [{key_key: k, value_key: str(v).lower()} for k, v in d.items()]
 
 
 def sync_tickets():
