@@ -195,7 +195,7 @@ def main():
         main_impl()
     except Exception as exc:
         LOGGER.critical(exc)
-        raise(exc)
+        raise exc
 
 if __name__ == '__main__':
     main()
