@@ -184,12 +184,18 @@ def do_sync():
     logger.info("Completed sync")
 
 
-def main():
+def main_impl():
     config, state = utils.parse_args(REQUIRED_CONFIG_KEYS)
     CONFIG.update(config)
     STATE.update(state)
     do_sync()
 
+def main():
+    try:
+        main_impl()
+    except Exception as e:
+        LOGGER.critical(e)
+        raise(e)
 
 if __name__ == '__main__':
     main()
