@@ -178,7 +178,9 @@ def do_sync():
         #sync_time_filtered("contacts")
         sync_time_filtered("companies")
     except HTTPError as e:
-        logger.error("GET %s [%s - %s]", e.request.url, e.response.status_code, e.response.content)
+        logger.critical(
+            "Error making request to Freshdesk API: GET %s: [%s - %s]",
+            e.request.url, e.response.status_code, e.response.content)
         sys.exit(1)
 
     logger.info("Completed sync")
