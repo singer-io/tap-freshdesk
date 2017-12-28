@@ -38,8 +38,11 @@ This tap:
     `subdomain.freshdesk.com`.
 
     ```json
-    {"api_token": "your-api-token",
-     "domain": "subdomain"}
+    {
+      "api_key": "your-api-token",
+      "domain": "subdomain",
+      "start_date": "2017-01-17T20:32:05Z"
+    }
     ```
 
 4. [Optional] Create the initial state file
