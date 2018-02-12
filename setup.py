@@ -10,7 +10,7 @@ setup(name='tap-freshdesk',
       classifiers=['Programming Language :: Python :: 3 :: Only'],
       py_modules=['tap_freshdesk'],
       install_requires=[
-          'singer-python==0.2.1',
+          'singer-python==5.0.4',
           'requests==2.12.4',
           'backoff==1.3.2'
       ],
