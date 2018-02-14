@@ -97,15 +97,32 @@ def transform_dict(d, key_key="name", value_key="value", force_str=False):
 
 
 def sync_tickets():
-    singer.write_schema("tickets", utils.load_schema("tickets"), ["id"])
-    singer.write_schema("conversations", utils.load_schema("conversations"), ["id"])
-    singer.write_schema("satisfaction_ratings", utils.load_schema("satisfaction_ratings"), ["id"])
-    singer.write_schema("time_entries", utils.load_schema("time_entries"), ["id"])
+    bookmark_property = 'updated_at'
+
+    singer.write_schema("tickets",
+                        utils.load_schema("tickets"),
+                        ["id"],
+                        bookmark_properties=[bookmark_property])
+
+    singer.write_schema("conversations",
+                        utils.load_schema("conversations"),
+                        ["id"],
+                        bookmark_properties=[bookmark_property])
+
+    singer.write_schema("satisfaction_ratings",
+                        utils.load_schema("satisfaction_ratings"),
+                        ["id"],
+                        bookmark_properties=[bookmark_property])
+
+    singer.write_schema("time_entries",
+                        utils.load_schema("time_entries"),
+                        ["id"],
+                        bookmark_properties=[bookmark_property])
 
     start = get_start("tickets")
     params = {
         'updated_since': start,
-        'order_by': "updated_at",
+        'order_by': bookmark_property,
         'order_type': "asc",
     }
     for i, row in enumerate(gen_request(get_url("tickets"), params)):
@@ -115,18 +132,19 @@ def sync_tickets():
 
         # get all sub-entities and save them
         logger.info("Ticket {}: Syncing conversations".format(row['id']))
+
         for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="conversations")):
             subrow.pop("attachments", None)
             subrow.pop("body", None)
-            if subrow['updated_at'] >= start:
-                singer.write_record("conversations", subrow)
+            if subrow[bookmark_property] >= start:
+                singer.write_record("conversations", subrow, time_extracted=singer.utils.now())
 
         try:
             logger.info("Ticket {}: Syncing satisfaction ratings".format(row['id']))
             for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="satisfaction_ratings")):
                 subrow['ratings'] = transform_dict(subrow['ratings'], key_key="question")
-                if subrow['updated_at'] >= start:
-                    singer.write_record("satisfaction_ratings", subrow)
+                if subrow[bookmark_property] >= start:
+                    singer.write_record("satisfaction_ratings", subrow, time_extracted=singer.singer.utils.now())
         except HTTPError as e:
             if e.response.status_code == 403:
                 logger.info("The Surveys feature is unavailable. Skipping the satisfaction_ratings stream.")
@@ -136,8 +154,8 @@ def sync_tickets():
         try:
             logger.info("Ticket {}: Syncing time entries".format(row['id']))
             for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="time_entries")):
-                if subrow['updated_at'] >= start:
-                    singer.write_record("time_entries", subrow)
+                if subrow[bookmark_property] >= start:
+                    singer.write_record("time_entries", subrow, time_extracted=singer.utils.now())
 
         except HTTPError as e:
             if e.response.status_code == 403:
@@ -145,23 +163,28 @@ def sync_tickets():
             else:
                 raise
 
-        utils.update_state(STATE, "tickets", row['updated_at'])
-        singer.write_record("tickets", row)
+        utils.update_state(STATE, "tickets", row[bookmark_property])
+        singer.write_record("tickets", row, time_extracted=singer.utils.now())
         singer.write_state(STATE)
 
 
 def sync_time_filtered(entity):
-    singer.write_schema(entity, utils.load_schema(entity), ["id"])
+    bookmark_property = 'updated_at'
+
+    singer.write_schema(entity,
+                        utils.load_schema(entity),
+                        ["id"],
+                        bookmark_properties=[bookmark_property])
     start = get_start(entity)
 
     logger.info("Syncing {} from {}".format(entity, start))
     for row in gen_request(get_url(entity)):
-        if row['updated_at'] >= start:
+        if row[bookmark_property] >= start:
             if 'custom_fields' in row:
                 row['custom_fields'] = transform_dict(row['custom_fields'], force_str=True)
 
-            utils.update_state(STATE, entity, row['updated_at'])
-            singer.write_record(entity, row)
+            utils.update_state(STATE, entity, row[bookmark_property])
+            singer.write_record(entity, row, time_extracted=singer.utils.now())
 
     singer.write_state(STATE)
 
@@ -196,7 +219,7 @@ def main():
     try:
         main_impl()
     except Exception as exc:
-        LOGGER.critical(exc)
+        logger.critical(exc)
         raise exc
 
 if __name__ == '__main__':
