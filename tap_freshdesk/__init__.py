@@ -144,7 +144,7 @@ def sync_tickets():
             for subrow in gen_request(get_url("sub_ticket", id=row['id'], entity="satisfaction_ratings")):
                 subrow['ratings'] = transform_dict(subrow['ratings'], key_key="question")
                 if subrow[bookmark_property] >= start:
-                    singer.write_record("satisfaction_ratings", subrow, time_extracted=singer.singer.utils.now())
+                    singer.write_record("satisfaction_ratings", subrow, time_extracted=singer.utils.now())
         except HTTPError as e:
             if e.response.status_code == 403:
                 logger.info("The Surveys feature is unavailable. Skipping the satisfaction_ratings stream.")
