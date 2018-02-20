@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='tap-freshdesk',
-      version='0.8.1',
+      version='0.8.2',
       description='Singer.io tap for extracting data from the Freshdesk API',
       author='Stitch',
       url='http://singer.io',
