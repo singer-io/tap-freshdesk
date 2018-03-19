@@ -124,6 +124,7 @@ def sync_tickets():
         'updated_since': start,
         'order_by': bookmark_property,
         'order_type': "asc",
+        'include': "requester,company,stats"
     }
     for i, row in enumerate(gen_request(get_url("tickets"), params)):
         logger.info("Ticket {}: Syncing".format(row['id']))
