@@ -19,6 +19,7 @@ STATE = {}
 
 endpoints = {
     "tickets": "/api/v2/tickets",
+    "ticket": "/api/v2/tickets/{id}",
     "sub_ticket": "/api/v2/tickets/{id}/{entity}",
     "agents": "/api/v2/agents",
     "roles": "/api/v2/roles",
@@ -43,7 +44,10 @@ def get_url(endpoint, **kwargs):
 @utils.ratelimit(1, 2)
 def request(url, params=None):
     params = params or {}
-    headers = {}
+    headers = {
+        "Content-Type": "application/json"
+    }
+
     if 'user_agent' in CONFIG:
         headers['User-Agent'] = CONFIG['user_agent']
 
@@ -84,6 +88,8 @@ def gen_request(url, params=None):
         else:
             break
 
+def gen_request_single(url, params=None):
+    return request(url, params).json()
 
 def transform_dict(d, key_key="name", value_key="value", force_str=False):
     # Custom fields are expected to be strings, but sometimes the API sends
@@ -130,6 +136,17 @@ def sync_tickets():
         logger.info("Ticket {}: Syncing".format(row['id']))
         row.pop('attachments', None)
         row['custom_fields'] = transform_dict(row['custom_fields'], force_str=True)
+
+        logger.info("Ticket {}: Syncing ticket".format(row['id']))
+
+        try:
+            subrow = gen_request_single(get_url("ticket", id=row['id']))
+            row.update(subrow)
+        except HTTPError as e:
+            if e.response.status_code == 403:
+                logger.info('Invalid ticket ID requested from Freshdesk {0}'.format(row['id']))
+            else:
+                raise
 
         # get all sub-entities and save them
         logger.info("Ticket {}: Syncing conversations".format(row['id']))
