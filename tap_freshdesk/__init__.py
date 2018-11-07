@@ -185,9 +185,12 @@ def sync_tickets_by_filter(bookmark_property, predefined_filter=None):
                     singer.write_record("time_entries", subrow, time_extracted=singer.utils.now())
 
         except HTTPError as e:
-            # 404 is being returned for deleted tickets and spam
-            if e.response.status_code == 403 or e.response.status_code == 404:
+            if e.response.status_code == 403:
                 logger.info("The Timesheets feature is unavailable. Skipping the time_entries stream.")
+            elif e.response.status_code == 404:
+                # 404 is being returned for deleted tickets and spam
+                logger.info("Could not retrieve time entries for ticket id {}. This may be caused by tickets "
+                            "marked as spam or deleted.".format(row['id']))
             else:
                 raise
 
