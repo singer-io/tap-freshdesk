@@ -119,14 +119,34 @@ def sync_tickets():
                         ["id"],
                         bookmark_properties=[bookmark_property])
 
-    start = get_start("tickets")
+    sync_tickets_by_filter(bookmark_property)
+    sync_tickets_by_filter(bookmark_property, "deleted")
+    sync_tickets_by_filter(bookmark_property, "spam")
+
+
+def sync_tickets_by_filter(bookmark_property, predefined_filter=None):
+    endpoint = "tickets"
+
+    state_entity = endpoint
+    if predefined_filter:
+        state_entity = state_entity + "_" + predefined_filter
+
+    start = get_start(state_entity)
+
     params = {
         'updated_since': start,
         'order_by': bookmark_property,
         'order_type': "asc",
         'include': "requester,company,stats"
     }
-    for i, row in enumerate(gen_request(get_url("tickets"), params)):
+
+    if predefined_filter:
+        logger.info("Syncing tickets with filter {}".format(predefined_filter))
+
+    if predefined_filter:
+        params['filter'] = predefined_filter
+
+    for i, row in enumerate(gen_request(get_url(endpoint), params)):
         logger.info("Ticket {}: Syncing".format(row['id']))
         row.pop('attachments', None)
         row['custom_fields'] = transform_dict(row['custom_fields'], force_str=True)
@@ -167,11 +187,15 @@ def sync_tickets():
         except HTTPError as e:
             if e.response.status_code == 403:
                 logger.info("The Timesheets feature is unavailable. Skipping the time_entries stream.")
+            elif e.response.status_code == 404:
+                # 404 is being returned for deleted tickets and spam
+                logger.info("Could not retrieve time entries for ticket id {}. This may be caused by tickets "
+                            "marked as spam or deleted.".format(row['id']))
             else:
                 raise
 
-        utils.update_state(STATE, "tickets", row[bookmark_property])
-        singer.write_record("tickets", row, time_extracted=singer.utils.now())
+        utils.update_state(STATE, state_entity, row[bookmark_property])
+        singer.write_record(endpoint, row, time_extracted=singer.utils.now())
         singer.write_state(STATE)
 
 
@@ -222,12 +246,14 @@ def main_impl():
     STATE.update(state)
     do_sync()
 
+
 def main():
     try:
         main_impl()
     except Exception as exc:
         logger.critical(exc)
         raise exc
+
 
 if __name__ == '__main__':
     main()
