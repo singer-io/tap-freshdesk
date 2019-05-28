@@ -19,6 +19,7 @@ STATE = {}
 
 endpoints = {
     "tickets": "/api/v2/tickets",
+    "ticket_activities": "/api/v2/export/ticket_activities",
     "sub_ticket": "/api/v2/tickets/{id}/{entity}",
     "agents": "/api/v2/agents",
     "roles": "/api/v2/roles",
@@ -34,20 +35,20 @@ session = requests.Session()
 def get_url(endpoint, **kwargs):
     return BASE_URL.format(CONFIG['domain']) + endpoints[endpoint].format(**kwargs)
 
-
 @backoff.on_exception(backoff.expo,
                       (requests.exceptions.RequestException),
                       max_tries=5,
                       giveup=lambda e: e.response is not None and 400 <= e.response.status_code < 500,
                       factor=2)
 @utils.ratelimit(1, 2)
-def request(url, params=None):
+def request(url, params=None, auth=None):
     params = params or {}
-    headers = {}
+    auth = auth or None
+    headers = {"Content-Type": "application/json"}
     if 'user_agent' in CONFIG:
         headers['User-Agent'] = CONFIG['user_agent']
 
-    req = requests.Request('GET', url, params=params, auth=(CONFIG['api_key'], ""), headers=headers).prepare()
+    req = requests.Request('GET', url, params=params, auth=auth, headers=headers).prepare()
     logger.info("GET {}".format(req.url))
     resp = session.send(req)
 
@@ -75,7 +76,10 @@ def gen_request(url, params=None):
     page = 1
     while True:
         params['page'] = page
-        data = request(url, params).json()
+
+        auth = (CONFIG['api_key'], "")
+        data = request(url, params, auth).json()
+
         for row in data:
             yield row
 
@@ -94,7 +98,6 @@ def transform_dict(d, key_key="name", value_key="value", force_str=False):
             v = str(v).lower()
         rtn.append({key_key: k, value_key: v})
     return rtn
-
 
 def sync_tickets():
     bookmark_property = 'updated_at'
@@ -219,6 +222,40 @@ def sync_time_filtered(entity):
 
     singer.write_state(STATE)
 
+def sync_ticket_activities():
+    logger.info("Getting ticket_activities URL")
+
+    auth = (CONFIG['api_key'], "")
+    data = request(get_url('ticket_activities'), {}, auth).json()
+
+    export_url = data['export'][0]['url']
+    data = request(export_url).json()
+
+    updated_schema = {
+        "properties": {}
+    }
+
+    for row in data['activities_data']:
+        for key in row['activity'].keys():
+            if key not in ['note', 'automation']:
+                updated_schema['properties'][key] = { "type": "string" }
+
+    bookmark_property = 'performed_at'
+    schema = utils.load_schema('ticket_activities')
+    schema['properties']['activity']['properties'].update(updated_schema['properties'])
+
+    singer.write_schema('ticket_activities',
+                    schema,
+                    [],
+                    bookmark_properties=[bookmark_property])
+
+    for row in data['activities_data']:
+        logger.info("Ticket {}: Syncing".format(row['ticket_id']))
+
+        utils.update_state(STATE, "ticket_activities", row[bookmark_property])
+        singer.write_record('ticket_activities', row, time_extracted=singer.utils.now())
+
+    singer.write_state(STATE)
 
 def do_sync():
     logger.info("Starting FreshDesk sync")
@@ -231,6 +268,7 @@ def do_sync():
         # commenting out this high-volume endpoint for now
         #sync_time_filtered("contacts")
         sync_time_filtered("companies")
+        sync_ticket_activities()
     except HTTPError as e:
         logger.critical(
             "Error making request to Freshdesk API: GET %s: [%s - %s]",
