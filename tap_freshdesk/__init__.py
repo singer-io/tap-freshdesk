@@ -56,7 +56,7 @@ def request(url, params=None, auth=None):
         retry_after = int(resp.headers['Retry-After'])
         logger.info("Rate limit reached. Sleeping for {} seconds".format(retry_after))
         time.sleep(retry_after)
-        return request(url, params)
+        return request(url, params, auth)
 
     resp.raise_for_status()
 
