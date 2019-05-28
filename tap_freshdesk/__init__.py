@@ -19,6 +19,7 @@ STATE = {}
 
 endpoints = {
     "tickets": "/api/v2/tickets",
+    "ticket_fields": "/api/v2/ticket_fields",
     "sub_ticket": "/api/v2/tickets/{id}/{entity}",
     "agents": "/api/v2/agents",
     "roles": "/api/v2/roles",
@@ -199,7 +200,8 @@ def sync_tickets_by_filter(bookmark_property, predefined_filter=None):
         singer.write_state(STATE)
 
 
-def sync_time_filtered(entity):
+def sync_time_filtered(entity, ignore_list=None):
+    ignore_list = ignore_list or []
     bookmark_property = 'updated_at'
 
     singer.write_schema(entity,
@@ -210,6 +212,11 @@ def sync_time_filtered(entity):
 
     logger.info("Syncing {} from {}".format(entity, start))
     for row in gen_request(get_url(entity)):
+
+        for key in ignore_list:
+            if key in row:
+                del row[key]
+
         if row[bookmark_property] >= start:
             if 'custom_fields' in row:
                 row['custom_fields'] = transform_dict(row['custom_fields'], force_str=True)
@@ -231,6 +238,8 @@ def do_sync():
         # commenting out this high-volume endpoint for now
         #sync_time_filtered("contacts")
         sync_time_filtered("companies")
+        # Ignoring "choices" and "nested_ticket_fields" as need to find a way to handle these fields
+        sync_time_filtered("ticket_fields", ["choices", "nested_ticket_fields"])
     except HTTPError as e:
         logger.critical(
             "Error making request to Freshdesk API: GET %s: [%s - %s]",
