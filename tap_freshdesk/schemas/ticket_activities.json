@@ -1,0 +1,57 @@
+{
+    "type": "object",
+    "properties": {
+      "activity": {
+        "type": ["null", "object"],
+        "properties": {
+          "note": {
+            "type": ["null", "object"],
+            "properties": {
+              "type": {
+                "type": ["null", "integer"]
+              },
+              "id": {
+                "type": ["null", "integer"]
+              }
+            }
+          },
+          "automation": {
+            "type": ["null", "object"],
+            "properties": {
+              "type": {
+                "type": ["null", "integer"]
+              },
+              "rule": {
+                "type": ["null", "string"]
+              }
+            }
+          }
+        }
+      },
+      "performed_at": {
+        "type": [
+          "null", 
+          "string"
+        ], 
+        "format": "date-time"
+      },
+      "ticket_id": {
+        "type": [
+          "null", 
+          "integer"
+        ]
+      },
+      "performer_id": {
+        "type": [
+          "null", 
+          "integer"
+        ]
+      },
+      "performer_type": {
+        "type": [
+          "null", 
+          "string"
+        ]
+      }
+    }
+  }
