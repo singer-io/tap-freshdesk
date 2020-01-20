@@ -71,6 +71,9 @@
         },
         "Updated Amendment Tool in Internal Tools": {
           "type" : ["null", "boolean"]
+        },
+        "thank_you_note": {
+          "type" : ["null", "boolean"]
         }
       }
     },
