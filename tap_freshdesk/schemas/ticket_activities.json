@@ -1,75 +1,57 @@
 {
-    "type": "object",
-    "properties": {
-      "activity": {
-        "type": ["null", "object"],
-        "properties": {
-          "note": {
-            "type": ["null", "object"],
-            "properties": {
-              "type": {
-                "type": ["null", "integer"]
-              },
-              "id": {
-                "type": ["null", "integer"]
-              }
+  "type": "object",
+  "properties": {
+    "activity": {
+      "type": ["null", "object"],
+      "properties": {
+        "note": {
+          "type": ["null", "object"],
+          "properties": {
+            "type": {
+              "type": ["null", "integer"]
+            },
+            "id": {
+              "type": ["null", "integer"]
             }
-          },
-          "automation": {
-            "type": ["null", "object"],
-            "properties": {
-              "type": {
-                "type": ["null", "integer"]
-              },
-              "rule": {
-                "type": ["null", "string"]
-              }
-            }
-          },
-          "association": {
-            "type": ["null", "object"],
-            "properties": {
-              "action": {
-                "type": ["null", "string"]
-              },
-              "type": {
-                "type": ["null", "string"]
-              },
-              "primary_ticket_id": {
-                "type": ["null", "integer"]
-              },
-              "secondary_ticket_ids": {
-                "type": ["null", "array"]
-              }
-            }
-          },
-          "requester_id": {
-            "type": ["null", "integer"]
-          },
-          "source": {
-            "type": ["null", "integer"]
-          },
-          "priority": {
-            "type": ["null", "integer"]
-          },
-          "new_ticket": {
-          "type": ["null", "boolean"]
-          },
-          "agent_id": {
-          "type" : ["null", "integer"]
           }
-      },
-      "performed_at": {
-        "type": ["null", "string"]
-      },
-      "ticket_id": {
-        "type": ["null", "integer"]
-      },
-      "performer_id": {
-        "type": ["null", "integer"]
-      },
-      "performer_type": {
-        "type": ["null", "string"]
+        },
+        "automation": {
+          "type": ["null", "object"],
+          "properties": {
+            "type": {
+              "type": ["null", "integer"]
+            },
+            "rule": {
+              "type": ["null", "string"]
+            }
+          }
+        }
       }
+    },
+    "performed_at": {
+      "type": [
+        "null", 
+        "string"
+      ], 
+      "format": "date-time"
+    },
+    "ticket_id": {
+      "type": [
+        "null", 
+        "integer"
+      ]
+    },
+    "performer_id": {
+      "type": [
+        "null", 
+        "integer"
+      ]
+    },
+    "performer_type": {
+      "type": [
+        "null", 
+        "string"
+      ]
     }
   }
+}
