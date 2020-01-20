@@ -43,26 +43,34 @@
             }
           }
         },
+        "send_email": {
+          "type": ["null", "object"],
+          "properties": {
+            "agent_ids": {
+              "type" : ["null", "array"]
+            }
+          }
+        },
         "requester_id": {
-          "type": ["null", "integer"]
+          "type" : ["null", "integer"]
         },
         "source": {
-          "type": ["null", "integer"]
+          "type" : ["null", "integer"]
         },
         "priority": {
-          "type": ["null", "integer"]
+          "type" : ["null", "integer"]
         },
         "new_ticket": {
-        "type": ["null", "boolean"]
+          "type" : ["null", "boolean"]
         },
         "agent_id": {
-        "type" : ["null", "integer"]
+          "type" : ["null", "integer"]
         },
         "added_tags": {
-        "type" : ["null", "array"]
+          "type" : ["null", "array"]
         },
         "Updated Amendment Tool in Internal Tools": {
-        "type" : ["null", "boolean"]
+          "type" : ["null", "boolean"]
         }
       }
     },
