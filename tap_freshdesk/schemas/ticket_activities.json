@@ -57,6 +57,9 @@
         },
         "agent_id": {
         "type" : ["null", "integer"]
+        },
+        "added_tags": {
+        "type" : ["null", "array"]
         }
       }
     },
