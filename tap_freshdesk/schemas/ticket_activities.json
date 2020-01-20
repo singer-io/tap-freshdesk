@@ -60,6 +60,9 @@
         },
         "added_tags": {
         "type" : ["null", "array"]
+        },
+        "Updated Amendment Tool in Internal Tools": {
+        "type" : ["null", "boolean"]
         }
       }
     },
