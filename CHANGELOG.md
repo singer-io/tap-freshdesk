@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.11.0
+  * Add `integer` as a valid type for `groups.auto_ticket_assign` [#42](https://github.com/singer-io/tap-freshdesk/pull/42)
+
 ## 0.10.0
   * Adds `tickets_spam` and `tickets_deleted` streams [#26](https://github.com/singer-io/tap-freshdesk/pull/26)
   * Bump version of `requests` dependency to 2.20.0
