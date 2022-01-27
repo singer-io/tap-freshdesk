@@ -55,12 +55,62 @@ class FreshdeskBaseTest(unittest.TestCase):
             'domain': os.getenv('TAP_FRESHDESK_SUBDOMAIN'),
         }
 
-    def expected_check_streams(self):
-        return set(self.expected_metadata().keys())
+    def required_environment_variables(self):
+        return set(['TAP_FRESHDESK_API_KEY',
+                    'TAP_FRESHDESK_SUBDOMAIN'])
 
     def expected_metadata(self):  # TODO LEFT OFF HERE, also need env vars
         """The expected streams and metadata about the streams"""
-        return  {}
+        return  {
+            "agents": {
+                self.PRIMARY_KEYS: {"id"},
+                self.REPLICATION_METHOD: self.INCREMENTAL,
+                self.REPLICATION_KEYS: {"updated_at"},
+                #self.EXPECTED_PAGE_SIZE: 25  # TODO check values
+            },
+            "companies": {
+                self.PRIMARY_KEYS: {"id"},
+                self.REPLICATION_METHOD: self.INCREMENTAL,
+                self.REPLICATION_KEYS: {"updated_at"},
+                #self.EXPECTED_PAGE_SIZE: 25  # TODO check values
+            },
+            "conversations": {
+                self.PRIMARY_KEYS: {"id"},
+                self.REPLICATION_METHOD: self.INCREMENTAL,
+                self.REPLICATION_KEYS: {"updated_at"},
+                #self.EXPECTED_PAGE_SIZE: 25  # TODO check values
+            },
+            "groups": {
+                self.PRIMARY_KEYS: {"id"},
+                self.REPLICATION_METHOD: self.INCREMENTAL,
+                self.REPLICATION_KEYS: {"updated_at"},
+                #self.EXPECTED_PAGE_SIZE: 25  # TODO check values
+            },
+            "roles": {
+                self.PRIMARY_KEYS: {"id"},
+                self.REPLICATION_METHOD: self.INCREMENTAL,
+                self.REPLICATION_KEYS: {"updated_at"},
+                #self.EXPECTED_PAGE_SIZE: 25  # TODO check values
+            },
+            "satisfaction_ratings": {
+                self.PRIMARY_KEYS: {"id"},
+                self.REPLICATION_METHOD: self.INCREMENTAL,
+                self.REPLICATION_KEYS: {"updated_at"},
+                #self.EXPECTED_PAGE_SIZE: 25  # TODO check values
+            },
+            "tickets": {
+                self.PRIMARY_KEYS: {"id"},
+                self.REPLICATION_METHOD: self.INCREMENTAL,
+                self.REPLICATION_KEYS: {"updated_at"},
+                #self.EXPECTED_PAGE_SIZE: 25  # TODO check values
+            },
+            "time_entries": {
+                self.PRIMARY_KEYS: {"id"},
+                self.REPLICATION_METHOD: self.INCREMENTAL,
+                self.REPLICATION_KEYS: {"updated_at"},
+                #self.EXPECTED_PAGE_SIZE: 25  # TODO check values
+            },
+        }
 
     #############################
     #  Common Metadata Methods  #
@@ -75,7 +125,6 @@ class FreshdeskBaseTest(unittest.TestCase):
                 for table, properties
                 in self.expected_metadata().items()}
 
-
     def expected_automatic_fields(self):
         """
         return a dictionary with key of table name and value as the primary keys and replication keys
@@ -85,7 +134,6 @@ class FreshdeskBaseTest(unittest.TestCase):
 
         return {stream: rks.get(stream, set()) | pks.get(stream, set())
                 for stream in self.expected_streams()}
-
 
     def expected_replication_method(self):
         """return a dictionary with key of table name and value of replication method"""
@@ -111,21 +159,6 @@ class FreshdeskBaseTest(unittest.TestCase):
                 for table, properties
                 in self.expected_metadata().items()}
 
-    def expected_primary_keys(self):
-
-        """
-        return a dictionary with key of table name
-        and value as a set of primary key fields
-        """
-        return {table: properties.get(self.PRIMARY_KEYS, set())
-                for table, properties
-                in self.expected_metadata().items()}
-
-    def expected_automatic_fields(self):
-        auto_fields = {}
-        for k, v in self.expected_metadata().items():
-            auto_fields[k] = v.get(self.PRIMARY_KEYS, set()) | v.get(self.REPLICATION_KEYS, set())
-        return auto_fields
 
     ##########################
     #  Common Test Actions   #
@@ -159,14 +192,11 @@ class FreshdeskBaseTest(unittest.TestCase):
         menagerie.verify_check_exit_status(self, exit_status, check_job_name)
 
         found_catalogs = menagerie.get_catalogs(conn_id)
-        self.assertGreater(len(found_catalogs), 0, msg="unable to locate schemas for connection {}".format(conn_id))
-
-        found_catalog_names = set(map(lambda c: c['tap_stream_id'], found_catalogs))
-        self.assertSetEqual(self.expected_check_streams(), found_catalog_names,
-                            msg="discovered schemas do not match")
-        print("discovered schemas are OK")
-
-        return found_catalogs
+        self.assertEqual(
+            len(found_catalogs), 0,
+            msg="expected 0 length catalog for check job, conn_id: {}".format(conn_id)
+        )
+        print("Verified len(found_catalogs) = 0 for job with conn_id: {}".format(conn_id))
 
     def run_and_verify_sync(self, conn_id):
         """
@@ -193,76 +223,6 @@ class FreshdeskBaseTest(unittest.TestCase):
 
         return sync_record_count
 
-    def perform_and_verify_table_and_field_selection(self,
-                                                     conn_id,
-                                                     test_catalogs,
-                                                     select_all_fields=True):
-        """
-        Perform table and field selection based off of the streams to select
-        set and field selection parameters.
-
-        Verify this results in the expected streams selected and all or no
-        fields selected for those streams.
-        """
-
-        # Select all available fields or select no fields from all testable streams
-        self.select_all_streams_and_fields(
-            conn_id=conn_id, catalogs=test_catalogs, select_all_fields=select_all_fields
-        )
-
-        catalogs = menagerie.get_catalogs(conn_id)
-
-        # Ensure our selection affects the catalog
-        expected_selected = [tc.get('tap_stream_id') for tc in test_catalogs]
-        for cat in catalogs:
-            catalog_entry = menagerie.get_annotated_schema(conn_id, cat['stream_id'])
-
-            # Verify all testable streams are selected
-            selected = catalog_entry.get('annotated-schema').get('selected')
-            print("Validating selection on {}: {}".format(cat['stream_name'], selected))
-            if cat['stream_name'] not in expected_selected:
-                self.assertFalse(selected, msg="Stream selected, but not testable.")
-                continue # Skip remaining assertions if we aren't selecting this stream
-            self.assertTrue(selected, msg="Stream not selected.")
-
-            if select_all_fields:
-                # Verify all fields within each selected stream are selected
-                for field, field_props in catalog_entry.get('annotated-schema').get('properties').items():
-                    field_selected = field_props.get('selected')
-                    print("\tValidating selection on {}.{}: {}".format(
-                        cat['stream_name'], field, field_selected))
-                    self.assertTrue(field_selected, msg="Field not selected.")
-            else:
-                # Verify only automatic fields are selected
-                expected_automatic_fields = self.expected_automatic_fields().get(cat['tap_stream_id'])
-                selected_fields = self.get_selected_fields_from_metadata(catalog_entry['metadata'])
-                self.assertEqual(expected_automatic_fields, selected_fields)
-
-    @staticmethod
-    def get_selected_fields_from_metadata(metadata):
-        selected_fields = set()
-        for field in metadata:
-            is_field_metadata = len(field['breadcrumb']) > 1
-            inclusion_automatic_or_selected = (field['metadata'].get('inclusion') == 'automatic'
-                                               or field['metadata'].get('selected') is True)
-            if is_field_metadata and inclusion_automatic_or_selected:
-                selected_fields.add(field['breadcrumb'][1])
-        return selected_fields
-
-    @staticmethod
-    def select_all_streams_and_fields(conn_id, catalogs, select_all_fields: bool = True):
-        """Select all streams and all fields within streams"""
-        for catalog in catalogs:
-            schema = menagerie.get_annotated_schema(conn_id, catalog['stream_id'])
-
-            non_selected_properties = []
-            if not select_all_fields:
-                # get a list of all properties so that none are selected
-                non_selected_properties = schema.get('annotated-schema', {}).get(
-                    'properties', {}).keys()
-
-            connections.select_catalog_and_fields_via_metadata(
-                conn_id, catalog, schema, [], non_selected_properties)
 
     def timedelta_formatted(self, dtime, days=0, str_format="%Y-%m-%dT00:00:00Z"):
         date_stripped = dt.strptime(dtime, str_format)
@@ -273,4 +233,3 @@ class FreshdeskBaseTest(unittest.TestCase):
     ################################
     #  Tap Specific Test Actions   #
     ################################
-
