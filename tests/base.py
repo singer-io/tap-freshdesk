@@ -19,6 +19,7 @@ class FreshdeskBaseTest(unittest.TestCase):
 
     START_DATE_FORMAT = "%Y-%m-%dT00:00:00Z" # %H:%M:%SZ
     BOOKMARK_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
     # EXPECTED_PAGE_SIZE = "expected-page-size" # TODO applies?
     OBEYS_START_DATE = "obey-start-date"
     # PARENT_STREAM = "parent-stream" # TODO applies?
