@@ -15,7 +15,6 @@ jobs:
             source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
             pip install -U pip setuptools
             pip install .[dev]
-      - add_ssh_keys
       - run:
           name: 'JSON Validator'
           command: |

@@ -18,7 +18,7 @@ class FreshdeskBaseTest(unittest.TestCase):
     FULL = "FULL_TABLE"
 
     START_DATE_FORMAT = "%Y-%m-%dT00:00:00Z" # %H:%M:%SZ
-
+    BOOKMARK_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
     # EXPECTED_PAGE_SIZE = "expected-page-size" # TODO applies?
     OBEYS_START_DATE = "obey-start-date"
     # PARENT_STREAM = "parent-stream" # TODO applies?
@@ -26,6 +26,8 @@ class FreshdeskBaseTest(unittest.TestCase):
     #######################################
     #  Tap Configurable Metadata Methods  #
     #######################################
+
+    start_date = ""
 
     def setUp(self):
         missing_envs = [x for x in [

@@ -6,7 +6,7 @@ from tap_tester import menagerie, connections, runner
 from base import FreshdeskBaseTest
 
 
-class CheckTest(FreshdeskBaseTest):
+class FreshdeskCheckTest(FreshdeskBaseTest):
     """Test tap check  mode and metadata/annotated-schema conforms to standards."""
 
     @staticmethod
