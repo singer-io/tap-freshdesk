@@ -1,4 +1,3 @@
-"""Test tap check mode and metadata/annotated-schema."""
 import re
 import os
 import pytz
@@ -30,17 +29,6 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         }
 
         return return_value
-
-    @staticmethod
-    def convert_state_to_utc(date_str):
-        """
-        Convert a saved bookmark value of the form '2020-08-25T13:17:36-07:00' to
-        a string formatted utc datetime,
-        in order to compare aginast json formatted datetime values
-        """
-        date_object = dateutil.parser.parse(date_str)
-        date_object_utc = date_object.astimezone(tz=pytz.UTC)
-        return datetime.strftime(date_object_utc, "%Y-%m-%dT%H:%M:%SZ")
 
     def calculated_states_by_stream(self, current_state):
         """
@@ -86,17 +74,6 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
 
         return stream_to_calculated_state
 
-    # function for verifying the date format
-    def is_expected_date_format(self, date):
-        try:
-            # parse date
-            datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%fZ")
-        except ValueError:
-            # return False if date is in not expected format
-            return False
-        # return True in case of no error
-        return True
-
     def test_run(self):
         """A Bookmarks Test"""
         # All streams will sync but assertions only run against test_streams
@@ -123,9 +100,9 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         ### Update State Between Syncs
         ##########################################################################
 
-        #new_states = {'bookmarks': dict()}        # BUG_ TDL-17559
+        #new_states = {'bookmarks': dict()}        # BUG TDL-17559
         simulated_states = self.calculated_states_by_stream(first_sync_bookmarks)
-        # for stream, new_state in simulated_states.items():        # BUG_ TDL-17559
+        # for stream, new_state in simulated_states.items():        # BUG TDL-17559
         #     new_states['bookmarks'][stream] = new_state  # Save expected format
         # menagerie.set_state(conn_id, new_states)
         menagerie.set_state(conn_id, simulated_states)
