@@ -25,9 +25,11 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         return_value = {
             #'start_date':  dt.today() - timedelta(days=5*365),
             'start_date':  '2016-02-09T00:00:00Z',
+            #'start_date':  '2022-02-04T00:00:00Z',
             #'start_date_with_fmt': dt.strftime(start_date, self.START_DATE_FORMAT),
         }
 
+        self.start_date = return_value['start_date']
         return return_value
 
     def calculated_states_by_stream(self, current_state):
@@ -44,9 +46,10 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         """
         timedelta_by_stream = {stream: [2,0,0]  # {stream_name: [days, hours, minutes], ...}
                                for stream in self.expected_streams()}
-        # Works with static start date to go back to 2017 Feb 8 22:xx:xx and pick up 5 of 6 records
-        # including 2 of 3 conversations assocated with those 5 ticket records
-        timedelta_by_stream['tickets'] = [698, 17, 26]
+        # Works with static start date to go back to 2017 Feb 8 22:xx:xx and pick up all but the
+        # first record including 2 of 3 conversations assocated with those first 5 ticket records
+        #timedelta_by_stream['tickets'] = [698, 17, 26]  # original conversations math, must update
+        timedelta_by_stream['tickets'] = [698, 0, 0]
         timedelta_by_stream['companies'] = [0, 0, 10]
         timedelta_by_stream['agents'] = [0, 1, 0]
 
@@ -69,7 +72,8 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
 
             state_format = self.BOOKMARK_FORMAT
             calculated_state_formatted = datetime.strftime(calculated_state_as_datetime, state_format)
-
+            if calculated_state_formatted < self.start_date:
+                raise RuntimeError("Time delta too large for stream {}, sim start_date < start_date!".format(stream))
             stream_to_calculated_state[stream] = calculated_state_formatted
 
         return stream_to_calculated_state
