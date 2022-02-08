@@ -6,7 +6,7 @@ from base import FreshdeskBaseTest
 class PaginationTest(FreshdeskBaseTest):
 
     def name(self):
-        return "tap_freshdesk_tests_using_shared_token_chaining"
+        return "tap_freshdesk_pagination_test"
 
     def test_name(self):
         print("Pagination Test for tap-freshdesk")

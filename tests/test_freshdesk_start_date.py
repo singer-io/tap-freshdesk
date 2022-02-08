@@ -9,6 +9,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
 
     start_date_1 = ""
     start_date_2 = ""
+    test_streams = {}
 
     @staticmethod
     def name():
@@ -17,7 +18,8 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
     def get_properties(self, original: bool = True):
         """Configuration properties required for the tap."""
         return_value = {
-            'start_date' : '2015-02-03T00:00:00Z',
+            #'start_date' : '2015-02-03T00:00:00Z',
+            'start_date' : '2015-02-06T00:00:00Z',
         }
         if original:
             return return_value
@@ -33,6 +35,12 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
 
         self.start_date = self.start_date_1
 
+        # Excluding broken streams: time_settings, satisfaction_ratings
+        # TODO spike on the two 403 streams above
+        test_streams = {'agents', 'companies', 'groups', 'tickets', 'conversations', 'roles'}
+        self.test_streams = test_streams
+        obey_start_date_streams = {'agents', 'companies', 'groups', 'roles', 'tickets', 'conversations'}
+
         ##########################################################################
         ### First Sync
         ##########################################################################
@@ -46,6 +54,15 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         # run initial sync
         record_count_by_stream_1 = self.run_and_verify_sync(conn_id_1)
         synced_records_1 = runner.get_records_from_target_output()
+
+        # Update based on sync data
+        first_sync_empty = self.test_streams - synced_records_1.keys()
+        if len(first_sync_empty) > 0:
+            print("Missing stream: {} in sync 1. Removing from test_streams. Add test data?".format(first_sync_empty))
+        first_sync_bonus = synced_records_1.keys() - self.test_streams
+        if len(first_sync_bonus) > 0:
+            print("Found stream: {} in first sync. Add to test_streams?".format(first_sync_bonus))
+        self.test_streams = self.test_streams - first_sync_empty
 
         ##########################################################################
         ### Update START DATE Between Syncs
@@ -68,12 +85,23 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         record_count_by_stream_2 = self.run_and_verify_sync(conn_id_2)
         synced_records_2 = runner.get_records_from_target_output()
 
-        # Excluding broken streams: conversations, time_settings, satisfaction_ratings, roles (2nd sync)
-        # Discuss how to handle empty streams for second sync (roles, conv) avoiding NoneType errors TODO
-        test_streams = {'agents', 'companies', 'groups', 'tickets'}
-        obey_start_date_streams = {'agents', 'companies', 'groups', 'roles', 'tickets'}
+        # Update based on sync data
+        second_sync_empty = self.test_streams - synced_records_2.keys()
+        if len(second_sync_empty) > 0:
+            print("Missing stream(s): {} in sync 2. Updating expectations"\
+                  .format(second_sync_empty))
+            self.second_sync_empty = second_sync_empty
+        second_sync_bonus = synced_records_2.keys() - self.test_streams
+        if len(second_sync_bonus) > 0:
+            print("Found stream(s): {} in second sync. Add to test_streams?".format(second_sync_bonus))
+
         for stream in test_streams:
             with self.subTest(stream=stream):
+
+                if stream in self.second_sync_empty:
+                    print("No sync 2 data to compare for stream: {}, start_date obeyed".format(stream))
+
+                    continue
 
                 # expected values
                 expected_primary_keys = self.expected_primary_keys()[stream]
@@ -92,7 +120,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
                 primary_keys_sync_1 = set(primary_keys_list_1)
                 primary_keys_sync_2 = set(primary_keys_list_2)
 
-                if stream in obey_start_date_streams:  # TODO
+                if stream in obey_start_date_streams:
                     print("Stream {} obeys start_date".format(stream))
                     # collect information specific to incremental streams from syncs 1 & 2
                     expected_replication_key = next(iter(self.expected_replication_keys().get(stream)))
@@ -103,7 +131,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
                                           synced_records_2.get(stream, {'messages': []}).get('messages', [])
                                           if row.get('data')]
 
-                    # # Verify replication key is greater or equal to start_date for sync 1
+                    # Verify replication key is greater or equal to start_date for sync 1
                     for replication_date in replication_dates_1:
                         self.assertGreaterEqual(
                             self.parse_date(replication_date), self.parse_date(expected_start_date_1),
