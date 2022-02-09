@@ -44,9 +44,9 @@ class PaginationTest(FreshdeskBaseTest):
                 # Spike created to address this issue : TDL - TODO
 
                 stream_page_size = self.expected_page_limits()[stream]
-                self.assertLessEqual(stream_page_size, record_count)
-                print("stream_page_size: {} <= record_count {} for stream: {}".format(stream_page_size, record_count, stream))
-                
+                self.assertLess(stream_page_size, record_count)
+                print("stream_page_size: {} < record_count {} for stream: {}".format(stream_page_size, record_count, stream))
+
                 # Verify there are no duplicates accross pages
                 records_pks_set = {tuple([message.get('data').get(primary_key)
                                           for primary_key in primary_keys])

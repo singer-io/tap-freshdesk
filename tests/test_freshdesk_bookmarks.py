@@ -24,8 +24,6 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
 
     def get_properties(self):
         return_value = {
-            #'start_date':  '2016-02-09T00:00:00Z',  # original start date
-            #'start_date':  '2022-02-04T00:00:00Z',  # start date does not include roles
             'start_date':  '2019-01-04T00:00:00Z',  # start date includes roles
         }
 
@@ -78,7 +76,8 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
 
     def test_run(self):
         """A Bookmarks Test"""
-        # All streams will sync but assertions only run against test_streams
+        # Since this tap has no table and field selection all streams will sync every time. So define
+        # the subset of streams to run assertions against until all streams are covered
         self.test_streams = {'tickets', 'companies', 'agents', 'groups', 'roles', 'conversations'}
 
         expected_replication_keys = self.expected_replication_keys()
@@ -101,11 +100,11 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         # Update based on sync data
         first_sync_empty = self.test_streams - first_sync_messages.keys()
         if len(first_sync_empty) > 0:
-            print("Missing stream: {} in sync 1. Removing from test_streams. Add test data?".format(first_sync_empty))
+            print("Missing stream(s): {} in sync 1. Failing test for stream(s)".format(first_sync_empty))
+        self.first_sync_empty = first_sync_empty
         first_sync_bonus = first_sync_messages.keys() - self.test_streams
         if len(first_sync_bonus) > 0:
             print("Found stream: {} in first sync. Add to test_streams?".format(first_sync_bonus))
-        self.test_streams = self.test_streams - first_sync_empty
 
         ##########################################################################
         ### Update State Between Syncs
@@ -131,7 +130,7 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         if len(second_sync_empty) > 0:
             print("Missing stream(s): {} in sync 2. Failing test. Check test data!"\
                   .format(second_sync_empty))
-            self.second_sync_empty = second_sync_empty
+        self.second_sync_empty = second_sync_empty
         second_sync_bonus = second_sync_messages.keys() - self.test_streams
         if len(second_sync_bonus) > 0:
             print("Found stream(s): {} in second sync. Add to test_streams?".format(second_sync_bonus))
@@ -143,10 +142,27 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         for stream in self.test_streams:  # Add supported streams 1 by 1
             with self.subTest(stream=stream):
 
+                # Assert failures for streams not present in first sync (loss of coverage)
+                if stream in self.first_sync_empty:
+                    self.assertTrue(False, msg="Stream: {} no longer in sync 1. Check test data".format(stream))
+
+                    continue
+
                 # Assert failures for streams present in first sync but not second sync
                 if stream in self.second_sync_empty:
-                    print("Commented out failing test case. TODO add JIRA ID. Stream: {}".format(stream))
-                    #self.assertTrue(False, msg="Stream: {} present in sync 1, missing in sync 2!".format(stream))
+                    if stream == 'conversations':
+                        print("Commented out failing test case. TODO add JIRA ID. Stream: {}".format(stream))
+                        # conversations is a child of tickets. When the child object (conversation / note)
+                        # is updated, the parent object (ticket) is also updated.  The ticket is then being
+                        # sync'd after update but the child conversation of that updated ticket is not
+                        # (at least when the actual note text was updated.  There are several ways to update
+                        # the child).
+                        #self.assertTrue(False, msg="Stream: {} present in sync 1, missing in sync 2!".format(stream))
+
+                        continue
+
+                    self.assertTrue(False, msg="Stream: {} present in sync 1, missing in sync 2!".format(stream))
+
                     continue
 
                 # expected values
@@ -161,7 +177,7 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
                 second_sync_records = [record.get('data') for record in
                                         second_sync_messages.get(stream).get('messages')
                                         if record.get('action') == 'upsert']
-                if stream != {'conversations'}:  # conversations has no bookmark
+                if stream != 'conversations':  # conversations has no bookmark
                     first_bookmark_value = first_sync_bookmarks.get(stream)
                     second_bookmark_value = second_sync_bookmarks.get(stream)
 
@@ -169,11 +185,11 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
 
                     # collect information specific to incremental streams from syncs 1 & 2
                     replication_key = next(iter(expected_replication_keys[stream]))
-                    if stream != {'conversations'}:  # conversations have no bookmark
+                    if stream != 'conversations':  # conversations has no bookmark
                         simulated_bookmark_value = simulated_states[stream]
 
-                    if stream == {'conversations'}:
-                        print("*** Only checking sync counts for conversations stream ***")
+                    if stream == 'conversations':
+                        print("*** Only checking sync counts for stream: {}".format(stream))
                         # TODO discuss re-factor to use tickets bookmark for conversations assertions
                         # Verify the number of records in the 2nd sync is less then the first
                         self.assertLessEqual(second_sync_count, first_sync_count)
@@ -193,9 +209,11 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
                     self.assertEqual(second_bookmark_value, first_bookmark_value)
 
                     # Verify the number of records in the 2nd sync is less then the first
-                    self.assertLessEqual(second_sync_count, first_sync_count)
-                    if second_sync_count == first_sync_count:
-                        print("WARN: first_sync_count == second_sync_count for stream: {}".format(stream))
+                    if stream == 'roles':
+                        self.assertEqual(second_sync_count, first_sync_count)
+                        print("WARN: Less covereage, unable to update records for stream: {}".format(stream))
+                    else:
+                        self.assertLess(second_sync_count, first_sync_count)
 
                     # Verify the bookmark is the max value sent to the target for a given replication key.
                     rec_time = []

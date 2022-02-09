@@ -27,6 +27,7 @@ jobs:
             source dev_env.sh
             source /usr/local/share/virtualenvs/tap-tester/bin/activate
             run-test --tap=tap-freshdesk tests
+          no_output_timeout: 35m
       - slack/notify-on-failure:
           only_for_branches: master
 workflows:
@@ -50,4 +51,3 @@ workflows:
           context:
             - circleci-user
             - tap-tester-user
-          

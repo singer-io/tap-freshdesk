@@ -18,8 +18,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
     def get_properties(self, original: bool = True):
         """Configuration properties required for the tap."""
         return_value = {
-            #'start_date' : '2015-02-03T00:00:00Z',
-            'start_date' : '2015-02-06T00:00:00Z',
+            'start_date' : '2019-01-06T00:00:00Z',
         }
         if original:
             return return_value
@@ -31,7 +30,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         """Instantiate start date according to the desired data set and run the test"""
 
         self.start_date_1 = self.get_properties().get('start_date')
-        self.start_date_2 = self.timedelta_formatted(self.start_date_1, days=7*365)
+        self.start_date_2 = self.timedelta_formatted(self.start_date_1, days=3*365+34)
 
         self.start_date = self.start_date_1
 
@@ -58,11 +57,11 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         # Update based on sync data
         first_sync_empty = self.test_streams - synced_records_1.keys()
         if len(first_sync_empty) > 0:
-            print("Missing stream: {} in sync 1. Removing from test_streams. Add test data?".format(first_sync_empty))
+            print("Missing stream: {} in sync 1. Failing test for stream(s). Add test data?".format(first_sync_empty))
+        self.first_sync_empty = first_sync_empty
         first_sync_bonus = synced_records_1.keys() - self.test_streams
         if len(first_sync_bonus) > 0:
             print("Found stream: {} in first sync. Add to test_streams?".format(first_sync_bonus))
-        self.test_streams = self.test_streams - first_sync_empty
 
         ##########################################################################
         ### Update START DATE Between Syncs
@@ -90,7 +89,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         if len(second_sync_empty) > 0:
             print("Missing stream(s): {} in sync 2. Updating expectations"\
                   .format(second_sync_empty))
-            self.second_sync_empty = second_sync_empty
+        self.second_sync_empty = second_sync_empty
         second_sync_bonus = synced_records_2.keys() - self.test_streams
         if len(second_sync_bonus) > 0:
             print("Found stream(s): {} in second sync. Add to test_streams?".format(second_sync_bonus))
@@ -98,10 +97,22 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         for stream in test_streams:
             with self.subTest(stream=stream):
 
-                if stream in self.second_sync_empty:
-                    print("No sync 2 data to compare for stream: {}, start_date obeyed".format(stream))
+                if stream in self.first_sync_empty:
+                    self.assertTrue(False, msg="Stream: {} missing from sync 1".format(stream))
 
                     continue
+
+                if stream in self.second_sync_empty:
+                    if stream == 'roles':
+                        self.assertTrue(True, msg="Expected 0 records for stream {}".format(stream))
+                        print("No sync 2 data to compare for stream: {}, start_date obeyed".format(stream))
+
+                        continue
+
+                    else:
+                        self.assertTrue(False, msg="Sync 2 empty for stream: {}".format(stream))
+
+                        continue
 
                 # expected values
                 expected_primary_keys = self.expected_primary_keys()[stream]
@@ -133,8 +144,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
 
                     # Verify replication key is greater or equal to start_date for sync 1
                     for replication_date in replication_dates_1:
-                        self.assertGreaterEqual(
-                            self.parse_date(replication_date), self.parse_date(expected_start_date_1),
+                        self.assertGreaterEqual(replication_date, expected_start_date_1,
                                 msg="Report pertains to a date prior to our start date.\n" +
                                 "Sync start_date: {}\n".format(expected_start_date_1) +
                                 "Record date: {} ".format(replication_date)
@@ -142,8 +152,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
 
                     # Verify replication key is greater or equal to start_date for sync 2
                     for replication_date in replication_dates_2:
-                        self.assertGreaterEqual(
-                            self.parse_date(replication_date), self.parse_date(expected_start_date_2),
+                        self.assertGreaterEqual(replication_date, expected_start_date_2,
                                 msg="Report pertains to a date prior to our start date.\n" +
                                 "Sync start_date: {}\n".format(expected_start_date_2) +
                                 "Record date: {} ".format(replication_date)
@@ -151,16 +160,22 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
 
                     # Verify the number of records replicated in sync 1 is greater than the number
                     # of records replicated in sync 2
-                    self.assertGreater(record_count_sync_1, record_count_sync_2)
+
+                    if stream == 'roles':
+                        self.assertEqual(record_count_sync_1, record_count_sync_2)
+                    else:
+                        self.assertGreater(record_count_sync_1, record_count_sync_2)
 
                     # Verify the records replicated in sync 2 were also replicated in sync 1
                     self.assertTrue(primary_keys_sync_2.issubset(primary_keys_sync_1))
 
-                else:
-                    print("Stream {} does NOT obey start_date".format(stream))
-                    # Verify that the 2nd sync with a later start date replicates the same number of
-                    # records as the 1st sync.
-                    self.assertEqual(record_count_sync_2, record_count_sync_1)
+                # Currently all streams obey start date.  Leaving this in incase one of the two remaining
+                # streams are implemented in the future and do not obey start date
+                # else:
+                #     print("Stream {} does NOT obey start_date".format(stream))
+                #     # Verify that the 2nd sync with a later start date replicates the same number of
+                #     # records as the 1st sync.
+                #     self.assertEqual(record_count_sync_2, record_count_sync_1)
 
-                    # Verify by primary key the same records are replicated in the 1st and 2nd syncs
-                    self.assertSetEqual(primary_keys_sync_1, primary_keys_sync_2)
+                #     # Verify by primary key the same records are replicated in the 1st and 2nd syncs
+                #     self.assertSetEqual(primary_keys_sync_1, primary_keys_sync_2)

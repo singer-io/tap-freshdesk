@@ -20,7 +20,7 @@ class FreshdeskBaseTest(unittest.TestCase):
     START_DATE_FORMAT = "%Y-%m-%dT00:00:00Z" # %H:%M:%SZ
     BOOKMARK_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
-    EXPECTED_PAGE_SIZE = "expected-page-size" # TODO applies?
+    EXPECTED_PAGE_SIZE = "expected-page-size"
     OBEYS_START_DATE = "obey-start-date"
     # PARENT_STREAM = "parent-stream" # TODO applies?
 
@@ -61,56 +61,56 @@ class FreshdeskBaseTest(unittest.TestCase):
         return set(['TAP_FRESHDESK_API_KEY',
                     'TAP_FRESHDESK_SUBDOMAIN'])
 
-    def expected_metadata(self):  # TODO LEFT OFF HERE, also need env vars
+    def expected_metadata(self):
         """The expected streams and metadata about the streams"""
         return  {
             "agents": {
                 self.PRIMARY_KEYS: {"id"},
                 self.REPLICATION_METHOD: self.INCREMENTAL,
                 self.REPLICATION_KEYS: {"updated_at"},
-                self.EXPECTED_PAGE_SIZE: 100  # TODO doc says 100 but attribute error occurs
+                self.EXPECTED_PAGE_SIZE: 100
             },
             "companies": {
                 self.PRIMARY_KEYS: {"id"},
                 self.REPLICATION_METHOD: self.INCREMENTAL,
                 self.REPLICATION_KEYS: {"updated_at"},
-                self.EXPECTED_PAGE_SIZE: 100  # TODO check values
+                self.EXPECTED_PAGE_SIZE: 100
             },
             "conversations": {
                 self.PRIMARY_KEYS: {"id"},
                 self.REPLICATION_METHOD: self.INCREMENTAL,
                 self.REPLICATION_KEYS: {"updated_at"},
-                self.EXPECTED_PAGE_SIZE: 100  # TODO check values
+                self.EXPECTED_PAGE_SIZE: 100
             },
             "groups": {
                 self.PRIMARY_KEYS: {"id"},
                 self.REPLICATION_METHOD: self.INCREMENTAL,
                 self.REPLICATION_KEYS: {"updated_at"},
-                self.EXPECTED_PAGE_SIZE: 100  # TODO check values
+                self.EXPECTED_PAGE_SIZE: 100
             },
             "roles": {
                 self.PRIMARY_KEYS: {"id"},
                 self.REPLICATION_METHOD: self.INCREMENTAL,
                 self.REPLICATION_KEYS: {"updated_at"},
-                self.EXPECTED_PAGE_SIZE: 100  # TODO check values
+                self.EXPECTED_PAGE_SIZE: 100
             },
             "satisfaction_ratings": {
                 self.PRIMARY_KEYS: {"id"},
                 self.REPLICATION_METHOD: self.INCREMENTAL,
                 self.REPLICATION_KEYS: {"updated_at"},
-                self.EXPECTED_PAGE_SIZE: 100  # TODO check values
+                self.EXPECTED_PAGE_SIZE: 100
             },
             "tickets": {
                 self.PRIMARY_KEYS: {"id"},
                 self.REPLICATION_METHOD: self.INCREMENTAL,
                 self.REPLICATION_KEYS: {"updated_at"},
-                self.EXPECTED_PAGE_SIZE: 100  # TODO check values
+                self.EXPECTED_PAGE_SIZE: 100
             },
             "time_entries": {
                 self.PRIMARY_KEYS: {"id"},
                 self.REPLICATION_METHOD: self.INCREMENTAL,
                 self.REPLICATION_KEYS: {"updated_at"},
-                self.EXPECTED_PAGE_SIZE: 100  # TODO check values
+                self.EXPECTED_PAGE_SIZE: 100
             },
         }
 
