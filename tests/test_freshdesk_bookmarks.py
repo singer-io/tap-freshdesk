@@ -151,7 +151,8 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
                 # Assert failures for streams present in first sync but not second sync
                 if stream in self.second_sync_empty:
                     if stream == 'conversations':
-                        print("Commented out failing test case. TODO add JIRA ID. Stream: {}".format(stream))
+                        print("Commented out failing test case for stream: {}".format(stream))
+                        print("See https://jira.talendforge.org/browse/TDL-17738 for details")
                         # conversations is a child of tickets. When the child object (conversation / note)
                         # is updated, the parent object (ticket) is also updated.  The ticket is then being
                         # sync'd after update but the child conversation of that updated ticket is not
