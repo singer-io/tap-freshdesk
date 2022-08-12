@@ -198,6 +198,42 @@ def sync_tickets_by_filter(bookmark_property, predefined_filter=None):
         singer.write_record(endpoint, row, time_extracted=singer.utils.now())
         singer.write_state(STATE)
 
+def sync_contacts():
+    bookmark_property = 'updated_at'
+
+    singer.write_schema("contacts",
+                        utils.load_schema("contacts"),
+                        ["id"],
+                        bookmark_properties=[bookmark_property])
+    
+    sync_filtered_contacts(bookmark_property)
+    sync_filtered_contacts(bookmark_property, 'blocked')
+    sync_filtered_contacts(bookmark_property, 'deleted')
+
+def sync_filtered_contacts(bookmark_property, predefined_filter=None):
+    endpoint = "contacts"
+
+    state_entity = endpoint
+    if predefined_filter:
+        state_entity = state_entity + "_" + predefined_filter
+
+    start = get_start(endpoint)
+
+    params = {
+        '_updated_since': start
+    }
+
+    if predefined_filter:
+        params['state'] = predefined_filter
+
+    for row in gen_request(get_url(endpoint), params):
+        logger.info("Contact {}: Syncing".format(row['id']))
+    
+        utils.update_state(STATE, state_entity, row[bookmark_property])
+        singer.write_record(endpoint, row, time_extracted=singer.utils.now())
+
+    singer.write_state(STATE)
+
 
 def sync_time_filtered(entity):
     bookmark_property = 'updated_at'
@@ -225,11 +261,10 @@ def do_sync():
 
     try:
         sync_tickets()
+        sync_contacts()
         sync_time_filtered("agents")
         sync_time_filtered("roles")
         sync_time_filtered("groups")
-        # commenting out this high-volume endpoint for now
-        #sync_time_filtered("contacts")
         sync_time_filtered("companies")
     except HTTPError as e:
         logger.critical(
