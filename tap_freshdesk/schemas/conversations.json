@@ -4,6 +4,30 @@
         "body_text": {
             "type": ["null", "string"]
         },
+        "attachments": {
+            "type": ["null", "array"],
+            "items": {
+              "type": ["null", "object"],
+              "properties": {}
+            }
+        },
+        "body": {
+            "type": ["null", "integer"]
+        },
+        "last_edited_at": {
+            "type": [
+              "null", 
+              "string"
+            ], 
+            "format": "date-time"
+        },
+        "last_edited_user_id": {
+            "type": [
+              "null", 
+              "string"
+            ], 
+            "format": "date-time"
+        }, 
         "id": {
             "type": ["null", "integer"]
         },

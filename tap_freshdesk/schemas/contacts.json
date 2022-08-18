@@ -69,6 +69,12 @@
         "string"
       ]
     }, 
+    "unique_external_id": {
+      "type": [
+        "null", 
+        "string"
+      ]
+    },
     "description": {
       "type": [
         "null", 

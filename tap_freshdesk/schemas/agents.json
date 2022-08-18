@@ -20,6 +20,15 @@
     "ticket_scope": {
       "type": ["null", "integer"]
     },
+    "type": {
+      "type": ["null", "string"]
+    },
+    "skill_ids": {
+      "type": ["null", "array"],
+      "items": {
+        "type": ["null", "integer"]
+      }
+    },
     "group_ids": {
       "type": ["null", "array"],
       "items": {

@@ -33,6 +33,19 @@
     "note": {
       "type": ["null", "string"]
     },
+    "health_score": {
+      "type": ["null", "string"]
+    },
+    "account_tier": {
+      "type": ["null", "string"]
+    },
+    "renewal_date": {
+      "type": ["null", "string"],
+      "format": "date-time"
+    },
+    "industry": {
+      "type": ["null", "string"]
+    },
     "created_at": {
       "type": ["null", "string"],
       "format": "date-time"

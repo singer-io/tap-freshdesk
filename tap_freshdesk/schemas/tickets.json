@@ -15,6 +15,13 @@
         }
       }
     },
+    "attachments": {
+      "type": ["null", "array"],
+      "items": {
+        "type": ["null", "object"],
+        "properties": {}
+      }
+    },
     "cc_emails": {
       "items": {
         "type": [

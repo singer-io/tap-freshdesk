@@ -19,6 +19,12 @@
         "string"
       ]
     }, 
+    "questions": {
+      "type": [
+        "null", 
+        "string"
+      ]
+    },
     "created_at": {
       "type": [
         "null", 
