@@ -21,6 +21,23 @@ jobs:
             source /usr/local/share/virtualenvs/tap-tester/bin/activate
             stitch-validate-json tap_freshdesk/schemas/*.json
       - run:
+          name: 'pylint'
+          command: |
+            source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
+            pylint tap_freshdesk --disable 'missing-module-docstring,missing-function-docstring,missing-class-docstring,line-too-long,invalid-name,too-many-lines,consider-using-f-string,too-many-arguments,too-many-locals'
+      - run:
+          name: 'Unit Tests'
+          command: |
+            source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
+            pip install nose coverage parameterized
+            nosetests --with-coverage --cover-erase --cover-package=tap_freshdesk --cover-html-dir=htmlcov tests/unittests
+            coverage html
+          when: always
+      - store_test_results:
+          path: test_output/report.xml
+      - store_artifacts:
+          path: htmlcov
+      - run:
           name: 'Integration Tests'
           command: |
             aws s3 cp s3://com-stitchdata-dev-deployment-assets/environments/tap-tester/tap_tester_sandbox dev_env.sh
