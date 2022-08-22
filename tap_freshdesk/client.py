@@ -6,11 +6,13 @@ import singer
 from tap_freshdesk import utils
 
 LOGGER = singer.get_logger()
-DEFAULT_TIMEOUT = 300
 BASE_URL = "https://{}.freshdesk.com"
 
 
 class FreshdeskClient:
+    """
+    The client class is used for making REST calls to the Freshdesk API.
+    """
 
     def __init__(self, config):
         self.config = config
@@ -26,6 +28,9 @@ class FreshdeskClient:
         self.session.close()
 
     def check_access_token(self):
+        """
+        Check if the access token is valid.
+        """
         self.request(self.base_url+"/api/v2/roles", {"per_page": 1, "page": 1})
 
     @backoff.on_exception(backoff.expo,
@@ -35,6 +40,9 @@ class FreshdeskClient:
                           factor=2)
     @utils.ratelimit(1, 2)
     def request(self, url, params={}):
+        """
+        Call rest API and return the response in case of status code 200.
+        """
         headers = {}
         if 'user_agent' in self.config:
             headers['User-Agent'] = self.config['user_agent']
@@ -43,6 +51,7 @@ class FreshdeskClient:
         LOGGER.info("GET {}".format(req.url))
         response = self.session.send(req)
 
+        # Call the function again if the rate limit is exceeded
         if 'Retry-After' in response.headers:
             retry_after = int(response.headers['Retry-After'])
             LOGGER.info("Rate limit reached. Sleeping for {} seconds".format(retry_after))
@@ -52,5 +61,3 @@ class FreshdeskClient:
         response.raise_for_status()
 
         return response.json()
-
-
