@@ -92,7 +92,7 @@ class TestBackoffHandling(unittest.TestCase):
 
     @parameterized.expand([
         (lambda *x,**y:get_response(500), client.FresdeskServerError),
-        (lambda *x,**y:get_response(503), client.Server5xxError),
+        (lambda *x,**y:get_response(503), client.Server5xxError),   # Unknown 5xx error
         (ConnectionError, ConnectionError),
         (TimeoutError, TimeoutError),
     ])
@@ -134,7 +134,7 @@ class TestRateLimitHandling(unittest.TestCase):
         # Verify that `requests` method is called twice.
         self.assertEqual(mock_request.call_count, 2)
 
-        # Verify that `time.sleep` was called for 'Retry-After' seconds from header.
+        # Verify that `time.sleep` was called for 'Retry-After' seconds from the header.
         mock_sleep.assert_any_call(int(retry_seconds))
 
     def test_rate_limite_not_exceeded(self, mock_sleep, mock_request):
@@ -146,6 +146,6 @@ class TestRateLimitHandling(unittest.TestCase):
         _client = client.FreshdeskClient(config)
         _client.request("https://TEST_URL.com")
 
-        # Verify that `requests` method is called twice.
+        # Verify that `requests` method is called once.
         self.assertEqual(mock_request.call_count, 1)
         mock_request.assert_called_with(mock.ANY, timeout=client.DEFAULT_TIMEOUT)
