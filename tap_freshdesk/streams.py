@@ -61,9 +61,7 @@ class Stream:
     records_count = {}
     force_str = False
     date_filter = False
-
-    def add_fields_at_1st_level(self, record, additional_data={}):
-        pass
+    parent_id = None
 
     def transform_dict(self, d, key_key="name", value_key="value", force_str=False):
         # Custom fields are expected to be strings, but sometimes the API sends
@@ -78,22 +76,17 @@ class Stream:
     def build_url(self, base_url, *args):
         return base_url +  '/api/v2/'+ self.path.format(*args)
 
-    def sync_child_stream(self, parent_id, catalogs, state, selected_stream_ids, start_date, max_bookmark, client):
+    def sync_child_stream(self, parent_id, catalog, state, selected_stream_ids, start_date, max_bookmark, client, streams_to_sync):
 
         for child in self.children:
             child_obj = STREAMS[child]()
-            child_bookmark = get_bookmark(state, child_obj.tap_stream_id, self.replication_keys[0], start_date)
 
             if child in selected_stream_ids:
-                child_catalog = get_schema(catalogs, child)
-                full_url = self.build_url(client.base_url, parent_id)
-                data = client.request(full_url, self.params)
-                max_bookmark = self.write_records(child_catalog, state, selected_stream_ids, start_date, child_obj.tap_stream_id, data)
-                # self.records_count[child_obj.tap_stream_id] += len(record[self.child_data_key])
-                # max_bookmark = max(max_bookmark, record[child_obj.replication_keys[0]])
+                child_obj.parent_id = parent_id
+                child_obj.sync_obj(state, start_date, client, catalog, selected_stream_ids, streams_to_sync)
         return max_bookmark
 
-    def write_records(self, catalog, state, selected_streams, start_date, data, max_bookmark, client):
+    def write_records(self, catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync):
         stream_catalog = get_schema(catalog, self.tap_stream_id)
         bookmark = get_bookmark(state, self.tap_stream_id, self.replication_keys[0], start_date)
 
@@ -102,7 +95,7 @@ class Stream:
                 extraction_time = singer.utils.now()
                 stream_metadata = singer.metadata.to_map(stream_catalog['metadata'])
                 for row in data:
-                    if row[self.replication_keys[0]] >= bookmark:
+                    if self.tap_stream_id in selected_streams and row[self.replication_keys[0]] >= bookmark:
                         if 'custom_fields' in row:
                             row['custom_fields'] = self.transform_dict(row['custom_fields'], force_str=self.force_str)
 
@@ -113,13 +106,13 @@ class Stream:
 
                     # Write selected child records
                     if self.children and self.child_data_key in row:
-                        max_bookmark = self.sync_child_stream(row[self.child_data_key], catalog, state, selected_streams, start_date, max_bookmark, client)
+                        max_bookmark = self.sync_child_stream(row[self.child_data_key], catalog, state, selected_streams, start_date, max_bookmark, client, streams_to_sync)
         return max_bookmark
 
     def sync_obj(self, state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter=None):
         bookmark = get_bookmark(state, self.tap_stream_id, self.replication_keys[0], start_date)
         max_bookmark = bookmark
-        full_url = self.build_url(client.base_url)
+        full_url = self.build_url(client.base_url, self.parent_id)
         if predefined_filter:
             LOGGER.info("Syncing tickets with filter {}".format(predefined_filter))
             self.params['filter'] = predefined_filter
@@ -133,8 +126,7 @@ class Stream:
             data = client.request(full_url, self.params)
             self.paginate = len(data) >= PAGE_SIZE
             self.params['page'] += 1
-            max_bookmark = self.write_records(catalog, state, selected_streams,
-                                                start_date, data, max_bookmark, client)
+            max_bookmark = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync)
             write_bookmarks(self.tap_stream_id, selected_streams, max_bookmark, state)
         singer.write_state(state)
 

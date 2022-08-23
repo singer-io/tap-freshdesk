@@ -57,7 +57,7 @@ def sync(client, config, state, catalog):
     records_count = {stream:0 for stream in STREAMS.keys()}
 
     singer.write_state(state)
-    for stream in streams_to_sync:
+    for stream in filter(lambda x: STREAMS[x]().parent is None, streams_to_sync):
         stream_obj = STREAMS[stream]()
 
         write_schemas(stream, catalog, selected_streams)
