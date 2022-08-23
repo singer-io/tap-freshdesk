@@ -4,16 +4,6 @@
         "body_text": {
             "type": ["null", "string"]
         },
-        "attachments": {
-            "type": ["null", "array"],
-            "items": {
-              "type": ["null", "object"],
-              "properties": {}
-            }
-        },
-        "body": {
-            "type": ["null", "integer"]
-        },
         "last_edited_at": {
             "type": [
               "null", 
