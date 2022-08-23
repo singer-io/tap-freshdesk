@@ -60,6 +60,7 @@ class Stream:
     child_data_key = None
     records_count = {}
     force_str = False
+    date_filter = False
 
     def add_fields_at_1st_level(self, record, additional_data={}):
         pass
@@ -77,32 +78,64 @@ class Stream:
     def build_url(self, base_url, *args):
         return base_url +  '/api/v2/'+ self.path.format(*args)
 
-    def sync_obj(self, state, start_date, client, catalog, selected_streams, records_count):
+    def sync_child_stream(self, parent_id, catalogs, state, selected_stream_ids, start_date, max_bookmark, client):
+
+        for child in self.children:
+            child_obj = STREAMS[child]()
+            child_bookmark = get_bookmark(state, child_obj.tap_stream_id, self.replication_keys[0], start_date)
+
+            if child in selected_stream_ids:
+                child_catalog = get_schema(catalogs, child)
+                full_url = self.build_url(client.base_url, parent_id)
+                data = client.request(full_url, self.params)
+                max_bookmark = self.write_records(child_catalog, state, selected_stream_ids, start_date, child_obj.tap_stream_id, data)
+                # self.records_count[child_obj.tap_stream_id] += len(record[self.child_data_key])
+                # max_bookmark = max(max_bookmark, record[child_obj.replication_keys[0]])
+        return max_bookmark
+
+    def write_records(self, catalog, state, selected_streams, start_date, data, max_bookmark, client):
         stream_catalog = get_schema(catalog, self.tap_stream_id)
+        bookmark = get_bookmark(state, self.tap_stream_id, self.replication_keys[0], start_date)
+
+        with singer.metrics.record_counter(self.tap_stream_id) as counter: 
+            with singer.Transformer() as transformer:
+                extraction_time = singer.utils.now()
+                stream_metadata = singer.metadata.to_map(stream_catalog['metadata'])
+                for row in data:
+                    if row[self.replication_keys[0]] >= bookmark:
+                        if 'custom_fields' in row:
+                            row['custom_fields'] = self.transform_dict(row['custom_fields'], force_str=self.force_str)
+
+                        rec = transformer.transform(row, stream_catalog['schema'], stream_metadata)
+                        singer.write_record(self.tap_stream_id, rec, time_extracted=extraction_time)
+                        max_bookmark = max(max_bookmark, rec[self.replication_keys[0]])
+                        counter.increment(1)
+
+                    # Write selected child records
+                    if self.children and self.child_data_key in row:
+                        max_bookmark = self.sync_child_stream(row[self.child_data_key], catalog, state, selected_streams, start_date, max_bookmark, client)
+        return max_bookmark
+
+    def sync_obj(self, state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter=None):
         bookmark = get_bookmark(state, self.tap_stream_id, self.replication_keys[0], start_date)
         max_bookmark = bookmark
         full_url = self.build_url(client.base_url)
+        if predefined_filter:
+            LOGGER.info("Syncing tickets with filter {}".format(predefined_filter))
+            self.params['filter'] = predefined_filter
+
+        if self.date_filter:
+            self.params['updated_since'] = bookmark
+        self.params['page'] = 1
 
         LOGGER.info("Syncing {} from {}".format(self.tap_stream_id, bookmark))
         while self.paginate:
-            with singer.metrics.record_counter(self.tap_stream_id) as counter: 
-                with singer.Transformer() as transformer:
-                    extraction_time = singer.utils.now()
-                    stream_metadata = singer.metadata.to_map(stream_catalog['metadata'])
-                    data = client.request(full_url, self.params)
-                    self.paginate = len(data) >= PAGE_SIZE
-                    self.params['page'] += 1
-                    for row in data:
-                        if row[self.replication_keys[0]] >= bookmark:
-                            if 'custom_fields' in row:
-                                row['custom_fields'] = self.transform_dict(row['custom_fields'], force_str=self.force_str)
-
-                            rec = transformer.transform(row, stream_catalog['schema'], stream_metadata)
-                            singer.write_record(self.tap_stream_id, rec, time_extracted=extraction_time)
-                            max_bookmark = max(max_bookmark, rec[self.replication_keys[0]])
-                            counter.increment(1)
-                            singer.write_bookmark(state, self.tap_stream_id, self.replication_keys[0], max_bookmark)
-
+            data = client.request(full_url, self.params)
+            self.paginate = len(data) >= PAGE_SIZE
+            self.params['page'] += 1
+            max_bookmark = self.write_records(catalog, state, selected_streams,
+                                                start_date, data, max_bookmark, client)
+            write_bookmarks(self.tap_stream_id, selected_streams, max_bookmark, state)
         singer.write_state(state)
 
 
@@ -126,6 +159,7 @@ class Conversations(Stream):
     replication_keys = ['updated_at']
     replication_method = 'INCREMENTAL'
     path = 'tickets/{}/conversations'
+    parent = 'tickets'
 
 class Groups(Stream):
     tap_stream_id = 'groups'
@@ -147,6 +181,8 @@ class SatisfactionRatings(Stream):
     replication_keys = ['updated_at']
     replication_method = 'INCREMENTAL'
     path = 'tickets/{}/satisfaction_ratings'
+    parent = 'tickets'
+    date_filter = True
 
 class Tickets(Stream):
     tap_stream_id = 'tickets'
@@ -154,6 +190,19 @@ class Tickets(Stream):
     replication_keys = ['updated_at']
     replication_method = 'INCREMENTAL'
     path = 'tickets'
+    children = ['conversations', 'satisfaction_ratings', 'time_entries']
+    child_data_key = 'id'
+    params = {
+        "per_page": PAGE_SIZE,
+        'order_by': replication_keys[0],
+        'order_type': "asc",
+        'include': "requester,company,stats"
+    }
+
+    def sync_obj(self, state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter=None):
+        super().sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync)
+        super().sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync, 'deleted')
+        super().sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync, 'spam')
 
 class TimeEntries(Stream):
     tap_stream_id = 'time_entries'
@@ -161,6 +210,7 @@ class TimeEntries(Stream):
     replication_keys = ['updated_at']
     replication_method = 'INCREMENTAL'
     path = 'tickets/{}/time_entries'
+    parent = 'tickets'
 
 STREAMS = {
     "agents": Agents,
