@@ -62,7 +62,7 @@ def sync(client, config, state, catalog):
 
         write_schemas(stream, catalog, selected_streams)
 
-        stream_obj.sync_obj(client, state, catalog['streams'], config["start_date"],
+        stream_obj.sync_obj(state, config["start_date"], client, catalog['streams'],
                                 selected_streams, records_count)
 
     for stream_name, stream_count in records_count.items():
