@@ -4,6 +4,7 @@ from singer import bookmarks
 
 
 LOGGER = singer.get_logger()
+PAGE_SIZE = 100
 
 
 def get_bookmark(state, stream_name, bookmark_key, start_date):
@@ -52,7 +53,8 @@ class Stream:
     filter_param = False
     children = []
     headers = {}
-    params = {}
+    params = {"per_page": PAGE_SIZE, "page": 1}
+    paginate = True
     parent = None
     data_key = None
     child_data_key = None
@@ -82,20 +84,24 @@ class Stream:
         full_url = self.build_url(client.base_url)
 
         LOGGER.info("Syncing {} from {}".format(self.tap_stream_id, bookmark))
-        with singer.metrics.record_counter(self.tap_stream_id) as counter: 
-            with singer.Transformer() as transformer:
-                extraction_time = singer.utils.now()
-                stream_metadata = singer.metadata.to_map(stream_catalog['metadata'])
-                for row in client.request(full_url):
-                    if row[self.replication_keys[0]] >= bookmark:
-                        if 'custom_fields' in row:
-                            row['custom_fields'] = self.transform_dict(row['custom_fields'], force_str=self.force_str)
+        while self.paginate:
+            with singer.metrics.record_counter(self.tap_stream_id) as counter: 
+                with singer.Transformer() as transformer:
+                    extraction_time = singer.utils.now()
+                    stream_metadata = singer.metadata.to_map(stream_catalog['metadata'])
+                    data = client.request(full_url, self.params)
+                    self.paginate = len(data) >= PAGE_SIZE
+                    self.params['page'] += 1
+                    for row in data:
+                        if row[self.replication_keys[0]] >= bookmark:
+                            if 'custom_fields' in row:
+                                row['custom_fields'] = self.transform_dict(row['custom_fields'], force_str=self.force_str)
 
-                        rec = transformer.transform(row, stream_catalog['schema'], stream_metadata)
-                        singer.write_record(self.tap_stream_id, rec, time_extracted=extraction_time)
-                        max_bookmark = max(max_bookmark, rec[self.replication_keys[0]])
-                        counter.increment(1)
-                        singer.write_bookmark(state, self.tap_stream_id, self.replication_keys[0], max_bookmark)
+                            rec = transformer.transform(row, stream_catalog['schema'], stream_metadata)
+                            singer.write_record(self.tap_stream_id, rec, time_extracted=extraction_time)
+                            max_bookmark = max(max_bookmark, rec[self.replication_keys[0]])
+                            counter.increment(1)
+                            singer.write_bookmark(state, self.tap_stream_id, self.replication_keys[0], max_bookmark)
 
         singer.write_state(state)
 
