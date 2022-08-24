@@ -134,7 +134,12 @@ class FreshdeskClient:
         """
         Check if the access token is valid.
         """
-        self.request(self.base_url+"/api/v2/roles", {"per_page": 1, "page": 1})
+        try:
+            self.request(self.base_url+"/api/v2/tickets/1/time_entries", {"per_page": 1, "page": 1})
+        except FresdeskAccessDeniedError:
+            LOGGER.warning("The `Surveys` and the `Timesheets` features are not supported in your current plan. "\
+                            "So, Data collection cannot be initiated for satisfaction_ratings and time_entries streams. "\
+                            "Please upgrade your account to `Pro` plan to use it.")
 
     @backoff.on_exception(backoff.expo,
                           (TimeoutError, ConnectionError, Server5xxError),
