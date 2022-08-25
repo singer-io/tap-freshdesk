@@ -14,14 +14,14 @@ LOGGER = singer.get_logger()
 def main():
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)
     config = args.config
-    client = FreshdeskClient(config)
-    if args.discover:
-        catalog = _discover()
-        catalog.dump()
-    else:
-        catalog = args.catalog \
-            if args.catalog else _discover()
-        _sync(client, config, args.state, catalog.to_dict())
+    with FreshdeskClient(config) as client:
+        if args.discover:
+            catalog = _discover()
+            catalog.dump()
+        else:
+            catalog = args.catalog \
+                if args.catalog else _discover()
+            _sync(client, config, args.state, catalog.to_dict())
 
 if __name__ == "__main__":
     main()
