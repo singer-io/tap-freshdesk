@@ -245,6 +245,12 @@ class TimeEntries(ChildStream):
     path = 'tickets/{}/time_entries'
     parent = 'tickets'
 
+class TicketFields(Stream):
+    tap_stream_id = 'ticket_fields'
+    key_properties = ['id']
+    replication_keys = ['updated_at']
+    replication_method = 'INCREMENTAL'
+    path = 'ticket_fields'
 
 STREAMS = {
     "agents": Agents,
@@ -254,5 +260,6 @@ STREAMS = {
     "roles": Roles,
     "satisfaction_ratings": SatisfactionRatings,
     "tickets": Tickets,
-    "time_entries": TimeEntries
+    "time_entries": TimeEntries,
+    'ticket_fields': TicketFields
 }
