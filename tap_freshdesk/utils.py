@@ -48,7 +48,7 @@ def get_abs_path(path):
 
 
 def load_json(path):
-    with open(path) as f:
+    with open(path) as f: # pylint: disable=unspecified-encoding
         return json.load(f)
 
 
