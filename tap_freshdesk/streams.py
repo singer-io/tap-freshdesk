@@ -195,7 +195,7 @@ class DateFilteredStream(Stream):
             for child in filter(lambda s: s in selected_streams, self.children):
                 singer.write_bookmark(state, child, "updated_at", get_bookmark(dup_state, child, "updated_at", start_date))
 
-            state = super().sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync, each_filter)
+            super().sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync, each_filter)
 
             max_child_bms.update({child: max(max_child_bms.get(child, ""), get_bookmark(state, child, "updated_at", start_date))
                                   for child in self.children 
@@ -204,6 +204,7 @@ class DateFilteredStream(Stream):
         for child, bm in max_child_bms.items():
             singer.write_bookmark(state, child, "updated_at", bm)
         return state
+
 class Tickets(DateFilteredStream):
     tap_stream_id = 'tickets'
     key_properties = ['id']
