@@ -73,9 +73,6 @@ def sync(client, config, state, catalog):
     LOGGER.info("Selected Streams: %s", selected_streams)
     LOGGER.info("Syncing Streams: %s", streams_to_sync)
 
-    # Initializing a dictionary to keep track of record count by streams
-    records_count = {stream:0 for stream in STREAMS.keys()}
-
     singer.write_state(state)
     currently_syncing = singer.get_currently_syncing(state)
     streams_to_sync = get_ordered_stream_list(currently_syncing, streams_to_sync)
@@ -88,6 +85,3 @@ def sync(client, config, state, catalog):
         stream_obj.sync_obj(state, config["start_date"], client, catalog['streams'],
                                 selected_streams, streams_to_sync)
         singer.write_state(state)
-
-    # for stream_name, stream_count in records_count.items():
-    #     LOGGER.info('%s: %d', stream_name, stream_count)
