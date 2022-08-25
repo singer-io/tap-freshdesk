@@ -93,6 +93,8 @@ class Stream:
             self.params['filter'] = predefined_filter
             stream_id = stream_id + '_' + predefined_filter
         bookmark = get_bookmark(state, stream_id, self.replication_keys[0], start_date)
+        child_max_bookmark = None
+        child_max_bookmarks = {}
 
         with singer.metrics.record_counter(self.tap_stream_id) as counter: 
             with singer.Transformer() as transformer:
@@ -109,9 +111,14 @@ class Stream:
                         counter.increment(1)
 
                     # Write selected child records
-                    if self.children and self.id_key in row:
-                        max_bookmark = self.sync_child_stream(row[self.id_key], catalog, state, selected_streams, start_date, max_bookmark, client, streams_to_sync)
-        return max_bookmark
+                    for child in self.children:
+                        child_obj = STREAMS[child]()
+                        child_max_bookmark = get_bookmark(state, child_obj.tap_stream_id, child_obj.replication_keys[0], start_date)
+                        if child in selected_streams:
+                            child_obj.parent_id = row['id']
+                            child_max_bookmark = max(child_max_bookmark, child_obj.sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync))
+                            child_max_bookmarks[child] = child_max_bookmark
+        return max_bookmark, child_max_bookmarks
 
     def sync_obj(self, state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter=None):
         full_url = self.build_url(client.base_url, self.parent_id)
@@ -131,9 +138,11 @@ class Stream:
             data = client.request(full_url, self.params)
             self.paginate = len(data) >= PAGE_SIZE
             self.params['page'] += 1
-            max_bookmark = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, predefined_filter)
-            write_bookmark(self.tap_stream_id, selected_streams, max_bookmark, state, predefined_filter)
+            max_bookmark, child_max_bookmarks = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, predefined_filter)
+        write_bookmark(self.tap_stream_id, selected_streams, max_bookmark, state, predefined_filter)
 
+        for key, value in child_max_bookmarks.items():
+            write_bookmark(key, selected_streams, value, state, None)
         return state
 
 
@@ -188,9 +197,9 @@ class Tickets(Stream):
         for each_filter in [None, 'deleted', 'spam']:
             # Update child bookmark to original_state
             for child in filter(lambda s: s in selected_streams, self.children):
-                state = singer.write_bookmark(state, child, "updated_at", get_bookmark(dup_state, child, "updated_at", start_date))
+                singer.write_bookmark(state, child, "updated_at", get_bookmark(dup_state, child, "updated_at", start_date))
 
-            super().sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync, each_filter)
+            state = super().sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync, each_filter)
 
             max_child_bms.update({child: max(max_child_bms.get(child, ""), get_bookmark(state, child, "updated_at", start_date))
                                   for child in self.children 
@@ -204,7 +213,7 @@ class ChildStream(Stream):
 
     def sync_obj(self, state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter=None):
         full_url = self.build_url(client.base_url, self.parent_id)
-        min_bookmark = get_min_bookmark(self.tap_stream_id, streams_to_sync, start_date, state, self.replication_keys[0], predefined_filter)
+        min_bookmark = get_min_bookmark(self.tap_stream_id, streams_to_sync, start_date, state, self.replication_keys[0], None)
         max_bookmark = min_bookmark
         self.params['page'] = 1
         self.paginate = True
@@ -214,10 +223,9 @@ class ChildStream(Stream):
             data = client.request(full_url, self.params)
             self.paginate = len(data) >= PAGE_SIZE
             self.params['page'] += 1
-            max_bookmark = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, predefined_filter)
-
-            write_bookmark(self.tap_stream_id, selected_streams, max_bookmark, state, predefined_filter)
-        return state
+            bookmark, _ = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, None)
+            max_bookmark = max(max_bookmark, bookmark)
+        return max_bookmark
 
 class Conversations(ChildStream):
     tap_stream_id = 'conversations'
