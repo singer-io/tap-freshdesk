@@ -36,11 +36,13 @@ This tap:
     Create a JSON file called `config.json` containing the api token you just found and
     the subdomain to your Freshdesk account. The subdomain will take the format
     `subdomain.freshdesk.com`.
+    The `request_timeout` is an optional parameter to set the timeout for requests. Default: 300 seconds
 
     ```json
     {
       "api_key": "your-api-token",
       "domain": "subdomain",
+      "request_timeout": 100,
       "start_date": "2017-01-17T20:32:05Z"
     }
     ```

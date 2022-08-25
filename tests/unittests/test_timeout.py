@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 from parameterized import parameterized
-from tap_freshdesk.client import FreshdeskClient, DEFAULT_TIMEOUT
+from tap_freshdesk.client import FreshdeskClient, REQUEST_TIMEOUT
 
 
 class TestTimeOut(unittest.TestCase):
@@ -10,17 +10,17 @@ class TestTimeOut(unittest.TestCase):
     """
 
     @parameterized.expand([
-        ["integer_value", 10, 10],
-        ["float_value", 100.5, 100],
-        ["string_integer", "10", 10],
-        ["string_float", "100.5", 100],
+        ["integer_value", 10, 10.0],
+        ["float_value", 100.5, 100.5],
+        ["string_integer", "10", 10.0],
+        ["string_float", "100.5", 100.5],
     ])
     def test_timeout_values(self, name, timeout_value, expected_value):
         """
         Test that for the valid value of timeout,
         No exception is raised and the expected value is set.
         """
-        config = {"timeout": timeout_value}
+        config = {"request_timeout": timeout_value}
         _client = FreshdeskClient(config)
 
         # Verify timeout value is expected
@@ -37,7 +37,7 @@ class TestTimeOut(unittest.TestCase):
         """
         Test that for invalid value exception is raised.
         """
-        config = {"timeout": timeout_value}
+        config = {"request_timeout": timeout_value}
         with self.assertRaises(Exception) as e:
             _client = FreshdeskClient(config)
 
@@ -53,4 +53,4 @@ class TestTimeOut(unittest.TestCase):
         _client = FreshdeskClient(config)
 
         # Verify that the default timeout value is set.
-        self.assertEqual(_client.timeout, DEFAULT_TIMEOUT)
+        self.assertEqual(_client.timeout, REQUEST_TIMEOUT)

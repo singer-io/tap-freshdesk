@@ -117,7 +117,7 @@ class Stream:
                         child_max_bookmark = get_bookmark(state, child_obj.tap_stream_id, child_obj.replication_keys[0], start_date)
                         if child in selected_streams:
                             child_obj.parent_id = row['id']
-                            child_max_bookmark = max(child_max_bookmark, child_obj.sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync))
+                            child_max_bookmark = max(child_max_bookmark, child_obj.sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync) or "")
                             child_max_bookmarks[child] = child_max_bookmark
         return max_bookmark, child_max_bookmarks
 
@@ -261,7 +261,6 @@ class TimeEntries(ChildStream):
             # Skipping 404 error as it is returned for deleted tickets and spam
             LOGGER.warning("Could not retrieve time entries for ticket id {}. This may be caused by tickets "
                            "marked as spam or deleted.".format(self.parent_id))
-            pass
 
 
 STREAMS = {

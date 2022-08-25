@@ -7,7 +7,7 @@ from tap_freshdesk import utils
 
 LOGGER = singer.get_logger()
 BASE_URL = "https://{}.freshdesk.com"
-DEFAULT_TIMEOUT = 300
+REQUEST_TIMEOUT = 300
 
 class FreshdeskException(Exception):
     pass
@@ -57,7 +57,7 @@ ERROR_CODE_EXCEPTION_MAPPING = {
     },
     403: {
         "raise_exception": FreshdeskAccessDeniedError,
-        "message": "The agent whose credentials were used in making this request was not authorized to perform this API call."
+        "message": "The agent whose credentials were used to make this request was not authorized to perform this API call."
     },
     404: {
         "raise_exception": FreshdeskNotFoundError,
@@ -109,6 +109,9 @@ def raise_for_error(response):
         else:
             exc = ERROR_CODE_EXCEPTION_MAPPING.get(error_code, {}).get("raise_exception", FreshdeskException)
         message = response_json.get("description", ERROR_CODE_EXCEPTION_MAPPING.get(error_code, {}).get("message", "Unknown Error"))
+        code = response_json.get("code", "")
+        if code:
+            error_code = f"{str(error_code)} {code}"
         formatted_message = "HTTP-error-code: {}, Error: {}".format(error_code, message)
         raise exc(formatted_message) from None
 
@@ -121,7 +124,7 @@ class FreshdeskClient:
         self.config = config
         self.session = requests.Session()
         self.base_url = BASE_URL.format(config.get("domain"))
-        self.timeout = DEFAULT_TIMEOUT
+        self.timeout = REQUEST_TIMEOUT
         self.set_timeout()
 
     def __enter__(self):
@@ -137,10 +140,10 @@ class FreshdeskClient:
         Set timeout value from config, if the value is passed. 
         Else raise an exception.
         """
-        timeout = self.config.get("timeout", DEFAULT_TIMEOUT)
+        timeout = self.config.get("request_timeout", REQUEST_TIMEOUT)
         if ((type(timeout) in [int, float]) or 
             (type(timeout)==str and timeout.replace('.', '', 1).isdigit())) and float(timeout):
-            self.timeout = int(float(timeout))
+            self.timeout = float(timeout)
         else:
             raise Exception("The entered timeout is invalid, it should be a valid none-zero integer.")
 
@@ -151,7 +154,7 @@ class FreshdeskClient:
         self.request(self.base_url+"/api/v2/roles", {"per_page": 1, "page": 1})
 
     @backoff.on_exception(backoff.expo,
-                          (TimeoutError, ConnectionError, Server5xxError),
+                          (requests.Timeout, requests.ConnectionError, Server5xxError),
                           max_tries=5,
                           factor=2)
     @utils.ratelimit(1, 2)
@@ -165,7 +168,7 @@ class FreshdeskClient:
 
         req = requests.Request('GET', url, params=params, auth=(self.config['api_key'], ""), headers=headers).prepare()
         LOGGER.info("GET {}".format(req.url))
-        response = self.session.send(req, timeout=DEFAULT_TIMEOUT)
+        response = self.session.send(req, timeout=self.timeout)
 
         # Call the function again if the rate limit is exceeded
         if 'Retry-After' in response.headers:
