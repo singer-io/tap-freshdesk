@@ -50,11 +50,12 @@ class Stream:
     """
     tap_stream_id = None
     replication_method = None
-    replication_keys = None
+    replication_keys = []
     key_properties = []
     endpoint = None
     filter_param = False
     children = []
+    path = ''
     headers = {}
     params = {"per_page": PAGE_SIZE, "page": 1}
     paginate = True
@@ -101,7 +102,7 @@ class Stream:
         child_max_bookmark = None
         child_max_bookmarks = {}
 
-        with singer.metrics.record_counter(self.tap_stream_id) as counter: 
+        with singer.metrics.record_counter(self.tap_stream_id) as counter:
             with singer.Transformer() as transformer:
                 extraction_time = singer.utils.now()
                 stream_metadata = singer.metadata.to_map(stream_catalog['metadata'])
@@ -129,7 +130,7 @@ class Stream:
     def sync_obj(self, state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter=None):
         full_url = self.build_url(client.base_url, self.parent_id)
         if predefined_filter:
-            LOGGER.info("Syncing tickets with filter {}".format(predefined_filter))
+            LOGGER.info("Syncing tickets with filter %s", predefined_filter)
             self.params[self.filter_keyword] = predefined_filter
         min_bookmark = get_min_bookmark(self.tap_stream_id, streams_to_sync, start_date, state, self.replication_keys[0], predefined_filter)
         max_bookmark = min_bookmark
@@ -140,7 +141,7 @@ class Stream:
         self.params['page'] = 1
         self.paginate = True
 
-        LOGGER.info("Syncing {} from {}".format(self.tap_stream_id, min_bookmark))
+        LOGGER.info("Syncing %s from %s", self.tap_stream_id, min_bookmark)
         # Paginate through the request
         while self.paginate:
             data = client.request(full_url, self.params)
@@ -198,9 +199,9 @@ class DateFilteredStream(Stream):
             super().sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync, each_filter)
 
             max_child_bms.update({child: max(max_child_bms.get(child, ""), get_bookmark(state, child, "updated_at", start_date))
-                                  for child in self.children 
+                                  for child in self.children
                                   if child in selected_streams})
-        
+
         for child, bm in max_child_bms.items():
             singer.write_bookmark(state, child, "updated_at", bm)
         return state
@@ -247,7 +248,7 @@ class ChildStream(Stream):
         self.params['page'] = 1
         self.paginate = True
 
-        LOGGER.info("Syncing {} from {}".format(self.tap_stream_id, min_bookmark))
+        LOGGER.info("Syncing %s from %s", self.tap_stream_id, min_bookmark)
         # Paginate through the records
         while self.paginate:
             data = client.request(full_url, self.params)
