@@ -85,7 +85,7 @@ def sync(client, config, state, catalog):
         write_schemas(stream, catalog, selected_streams)
         update_currently_syncing(state, stream)
 
-        state = stream_obj.sync_obj(state, config["start_date"], client, catalog['streams'],
+        stream_obj.sync_obj(state, config["start_date"], client, catalog['streams'],
                                 selected_streams, streams_to_sync)
         singer.write_state(state)
 

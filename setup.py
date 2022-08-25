@@ -14,6 +14,11 @@ setup(name='tap-freshdesk',
           'requests==2.20.0',
           'backoff==1.8.0'
       ],
+      extras_require={
+          'dev': [
+              'pylint',
+          ]
+      },
       entry_points='''
           [console_scripts]
           tap-freshdesk=tap_freshdesk:main
