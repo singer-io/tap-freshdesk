@@ -151,9 +151,9 @@ class FreshdeskClient:
         try:
             self.request(self.base_url+"/api/v2/tickets/1/time_entries", {"per_page": 1, "page": 1})
         except FreshdeskAccessDeniedError:
-            LOGGER.warning("The `Surveys` and the `Timesheets` features are not supported in your current plan. "\
+            LOGGER.warning("The `Surveys` and the `Timesheets` features might not be supported in your current plan. "\
                             "So, Data collection cannot be initiated for satisfaction_ratings and time_entries streams. "\
-                            "Please upgrade your account to `Pro` plan to use it.")
+                            "Upgrade the current account to the Pro plan will work if this is the case. So, please check your account's plan.")
 
     @backoff.on_exception(backoff.expo,
                           (TimeoutError, ConnectionError, Server5xxError),
