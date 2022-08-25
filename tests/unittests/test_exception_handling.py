@@ -5,6 +5,7 @@ import requests
 from parameterized import parameterized
 from tap_freshdesk import client
 from tap_freshdesk.client import raise_for_error, ERROR_CODE_EXCEPTION_MAPPING
+from tap_freshdesk.streams import Tickets, TimeEntries
 
 def get_response(status_code, json_resp={}, headers = None):
     """
@@ -24,16 +25,16 @@ class TestExceptionHanfling(unittest.TestCase):
     """
 
     @parameterized.expand([
-        (400, client.FresdeskValidationError),
-        (401, client.FresdeskAuthenticationError),
-        (403, client.FresdeskAccessDeniedError),
-        (404, client.FresdeskNotFoundError),
-        (405, client.FresdeskMethodNotAllowedError),
-        (406, client.FresdeskUnsupportedAcceptHeaderError),
-        (409, client.FresdeskConflictingStateError),
-        (415, client.FresdeskUnsupportedContentError),
-        (429, client.FresdeskRateLimitError),
-        (500, client.FresdeskServerError),
+        (400, client.FreshdeskValidationError),
+        (401, client.FreshdeskAuthenticationError),
+        (403, client.FreshdeskAccessDeniedError),
+        (404, client.FreshdeskNotFoundError),
+        (405, client.FreshdeskMethodNotAllowedError),
+        (406, client.FreshdeskUnsupportedAcceptHeaderError),
+        (409, client.FreshdeskConflictingStateError),
+        (415, client.FreshdeskUnsupportedContentError),
+        (429, client.FreshdeskRateLimitError),
+        (500, client.FreshdeskServerError),
         (503, client.Server5xxError),  # Unknown 5xx error
     ])
     def test_custom_error_message(self, error_code, error):
@@ -49,16 +50,16 @@ class TestExceptionHanfling(unittest.TestCase):
         self.assertEqual(str(e.exception), expected_message)
 
     @parameterized.expand([
-        (400, "Client or Validation Error", client.FresdeskValidationError),
-        (401, "Authentication Failure", client.FresdeskAuthenticationError),
-        (403, "Access Denied", client.FresdeskAccessDeniedError),
-        (404, "Requested Resource not Found", client.FresdeskNotFoundError),
-        (405, "Method not allowed", client.FresdeskMethodNotAllowedError),
-        (406, "Unsupported Accept Header", client.FresdeskUnsupportedAcceptHeaderError),
-        (409, "AInconsistent/Conflicting State", client.FresdeskConflictingStateError),
-        (415, "Unsupported Content-type", client.FresdeskUnsupportedContentError),
-        (429, "Rate Limit Exceeded", client.FresdeskRateLimitError),
-        (500, "Unexpected Server Error", client.FresdeskServerError),
+        (400, "Client or Validation Error", client.FreshdeskValidationError),
+        (401, "Authentication Failure", client.FreshdeskAuthenticationError),
+        (403, "Access Denied", client.FreshdeskAccessDeniedError),
+        (404, "Requested Resource not Found", client.FreshdeskNotFoundError),
+        (405, "Method not allowed", client.FreshdeskMethodNotAllowedError),
+        (406, "Unsupported Accept Header", client.FreshdeskUnsupportedAcceptHeaderError),
+        (409, "AInconsistent/Conflicting State", client.FreshdeskConflictingStateError),
+        (415, "Unsupported Content-type", client.FreshdeskUnsupportedContentError),
+        (429, "Rate Limit Exceeded", client.FreshdeskRateLimitError),
+        (500, "Unexpected Server Error", client.FreshdeskServerError),
     ])
     def test_error_response_message(self, error_code, message, error):
         """
@@ -76,7 +77,7 @@ class TestExceptionHanfling(unittest.TestCase):
         mock_response = get_response(400, {"description": "Client or Validation Error"})
         mock_response._content = "ABC".encode()
         expected_message = "HTTP-error-code: {}, Error: {}".format(400, "Client or Validation Error")
-        with self.assertRaises(client.FresdeskValidationError) as e:
+        with self.assertRaises(client.FreshdeskValidationError) as e:
             raise_for_error(mock_response)
 
         # Verify that an error message is expected
@@ -91,7 +92,7 @@ class TestBackoffHandling(unittest.TestCase):
     """
 
     @parameterized.expand([
-        (lambda *x,**y:get_response(500), client.FresdeskServerError),
+        (lambda *x,**y:get_response(500), client.FreshdeskServerError),
         (lambda *x,**y:get_response(503), client.Server5xxError),   # Unknown 5xx error
         (ConnectionError, ConnectionError),
         (TimeoutError, TimeoutError),
@@ -149,3 +150,26 @@ class TestRateLimitHandling(unittest.TestCase):
         # Verify that `requests` method is called once.
         self.assertEqual(mock_request.call_count, 1)
         mock_request.assert_called_with(mock.ANY, timeout=client.DEFAULT_TIMEOUT)
+
+
+class TestSkip404(unittest.TestCase):
+    """
+    Test handling of 404 for a specific child.
+    """
+
+    @mock.patch("tap_freshdesk.streams.LOGGER.warning")
+    @mock.patch("tap_freshdesk.client.FreshdeskClient.request")
+    def test_child_stream_skips(self, mock_request, mock_logger):
+        """
+        Test that on 404 error is skipped for `TimeEntries`.
+        """
+        stream = TimeEntries()
+        _client = mock.Mock()
+        _client.base_url = ""
+        _client.request.side_effect = client.FreshdeskNotFoundError
+
+        stream.parent_id = 10
+        stream.sync_obj({}, "START_DATE", _client, {}, [], [])
+
+        # Verify that error is not raised and the warning logger is called.
+        mock_logger.assert_called_with("Could not retrieve time entries for ticket id 10. This may be caused by tickets marked as spam or deleted.")
