@@ -22,7 +22,21 @@ KNOWN_MISSING_FIELDS = {
     },
     'agents': {
         'group_ids',
-        'role_ids'
+        'role_ids',
+        'skill_ids'
+    },
+    'companies': {
+        'account_tier',
+        'industry',
+        'health_score',
+        'renewal_date'
+    },
+    'contacts': {
+        'unique_external_id'
+    },
+    'conversations': {
+        'last_edited_at',
+        'last_edited_user_id'
     }
 }
 
