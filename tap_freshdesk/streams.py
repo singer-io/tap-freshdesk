@@ -262,6 +262,12 @@ class TimeEntries(ChildStream):
                            "marked as spam or deleted.".format(self.parent_id))
             pass
 
+class TicketActivities(Stream):
+    tap_stream_id = 'ticket_activities'
+    key_properties = ['id']
+    replication_keys = ['performed_at']
+    replication_method = 'INCREMENTAL'
+    path = 'export/ticket_activities'
 
 STREAMS = {
     "agents": Agents,
