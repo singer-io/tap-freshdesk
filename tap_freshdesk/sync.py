@@ -32,6 +32,26 @@ def get_selected_streams(catalog):
                 selected_streams.append(stream['tap_stream_id'])
     return selected_streams
 
+def update_currently_syncing(state, stream_name):
+    """
+    Updates currently syncing stream in the state.
+    """
+    if not stream_name and singer.get_currently_syncing(state):
+        del state['currently_syncing']
+    else:
+        singer.set_currently_syncing(state, stream_name)
+    singer.write_state(state)
+
+def get_ordered_stream_list(currently_syncing, streams_to_sync):
+    """
+    Get an ordered list of remaining streams to sync other streams followed by synced streams.
+    """
+    stream_list = list(sorted(streams_to_sync))
+    if currently_syncing in stream_list:
+        index = stream_list.index(currently_syncing)
+        stream_list = stream_list[index:] + stream_list[:index]
+    return stream_list
+
 def get_stream_to_sync(selected_streams):
     """
     Get the streams for which the sync function should be called(the parent in case of selected child streams).
@@ -57,13 +77,17 @@ def sync(client, config, state, catalog):
     records_count = {stream:0 for stream in STREAMS.keys()}
 
     singer.write_state(state)
+    currently_syncing = singer.get_currently_syncing(state)
+    streams_to_sync = get_ordered_stream_list(currently_syncing, streams_to_sync)
     for stream in filter(lambda x: STREAMS[x]().parent is None, streams_to_sync):
         stream_obj = STREAMS[stream]()
 
         write_schemas(stream, catalog, selected_streams)
+        update_currently_syncing(state, stream)
 
-        stream_obj.sync_obj(state, config["start_date"], client, catalog['streams'],
-                                selected_streams, records_count)
+        state = stream_obj.sync_obj(state, config["start_date"], client, catalog['streams'],
+                                selected_streams, streams_to_sync)
+        singer.write_state(state)
 
-    for stream_name, stream_count in records_count.items():
-        LOGGER.info('%s: %d', stream_name, stream_count)
+    # for stream_name, stream_count in records_count.items():
+    #     LOGGER.info('%s: %d', stream_name, stream_count)

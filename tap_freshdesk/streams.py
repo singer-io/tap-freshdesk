@@ -132,9 +132,9 @@ class Stream:
             self.paginate = len(data) >= PAGE_SIZE
             self.params['page'] += 1
             max_bookmark = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, predefined_filter)
-            
             write_bookmark(self.tap_stream_id, selected_streams, max_bookmark, state, predefined_filter)
-        singer.write_state(state)
+
+        return state
 
 
 class Agents(Stream):
@@ -183,18 +183,22 @@ class Tickets(Stream):
     }
 
     def sync_obj(self, state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter=None):
-        max_states = []
+        dup_state = copy.deepcopy(state)
+        max_child_bms = {}
         for each_filter in [None, 'deleted', 'spam']:
-            dup_state = copy.deepcopy(state)
-            super().sync_obj(dup_state, start_date, client, catalog, selected_streams, streams_to_sync, each_filter)
-            max_states.append(dup_state)
+            # Update child bookmark to original_state
+            for child in filter(lambda s: s in selected_streams, self.children):
+                state = singer.write_bookmark(state, child, "updated_at", get_bookmark(dup_state, child, "updated_at", start_date))
 
-        stream_list = set()
-        for st in max_states:
-            stream_list = stream_list.union(set(st.get("bookmarks", {}).keys()))
-        for stream in stream_list:
-            singer.write_bookmark(state, stream, "updated_at", max(map(get_bookmark(state, stream, "updated_at", start_date), max_states)))
+            super().sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync, each_filter)
 
+            max_child_bms.update({child: max(max_child_bms.get(child, ""), get_bookmark(state, child, "updated_at", start_date))
+                                  for child in self.children 
+                                  if child in selected_streams})
+        
+        for child, bm in max_child_bms.items():
+            singer.write_bookmark(state, child, "updated_at", bm)
+        return state
 
 class ChildStream(Stream):
 
@@ -213,7 +217,7 @@ class ChildStream(Stream):
             max_bookmark = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, predefined_filter)
 
             write_bookmark(self.tap_stream_id, selected_streams, max_bookmark, state, predefined_filter)
-        singer.write_state(state)
+        return state
 
 class Conversations(ChildStream):
     tap_stream_id = 'conversations'
