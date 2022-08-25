@@ -7,84 +7,84 @@ from tap_freshdesk import utils
 
 LOGGER = singer.get_logger()
 BASE_URL = "https://{}.freshdesk.com"
-DEFAULT_TIMEOUT = 6
+DEFAULT_TIMEOUT = 300
 
 class FreshdeskException(Exception):
     pass
 
-class FresdeskValidationError(FreshdeskException):
+class FreshdeskValidationError(FreshdeskException):
     pass
 
-class FresdeskAuthenticationError(FreshdeskException):
+class FreshdeskAuthenticationError(FreshdeskException):
     pass
 
-class FresdeskAccessDeniedError(FreshdeskException):
+class FreshdeskAccessDeniedError(FreshdeskException):
     pass
 
-class FresdeskNotFoundError(FreshdeskException):
+class FreshdeskNotFoundError(FreshdeskException):
     pass
 
-class FresdeskMethodNotAllowedError(FreshdeskException):
+class FreshdeskMethodNotAllowedError(FreshdeskException):
     pass
 
-class FresdeskUnsupportedAcceptHeaderError(FreshdeskException):
+class FreshdeskUnsupportedAcceptHeaderError(FreshdeskException):
     pass
 
-class FresdeskConflictingStateError(FreshdeskException):
+class FreshdeskConflictingStateError(FreshdeskException):
     pass
 
-class FresdeskUnsupportedContentError(FreshdeskException):
+class FreshdeskUnsupportedContentError(FreshdeskException):
     pass
 
-class FresdeskRateLimitError(FreshdeskException):
+class FreshdeskRateLimitError(FreshdeskException):
     pass
 
 class Server5xxError(FreshdeskException):
     pass
 
-class FresdeskServerError(Server5xxError):
+class FreshdeskServerError(Server5xxError):
     pass
 
 
 ERROR_CODE_EXCEPTION_MAPPING = {
     400: {
-        "raise_exception": FresdeskValidationError,
+        "raise_exception": FreshdeskValidationError,
         "message": "The request body/query string is not in the correct format."
     },
     401: {
-        "raise_exception": FresdeskAuthenticationError,
+        "raise_exception": FreshdeskAuthenticationError,
         "message": "The Authorization header is either missing or incorrect."
     },
     403: {
-        "raise_exception": FresdeskAccessDeniedError,
+        "raise_exception": FreshdeskAccessDeniedError,
         "message": "The agent whose credentials were used in making this request was not authorized to perform this API call."
     },
     404: {
-        "raise_exception": FresdeskNotFoundError,
+        "raise_exception": FreshdeskNotFoundError,
         "message": "The request contains invalid ID/Freshdesk domain in the URL or an invalid URL itself."
     },
     405: {
-        "raise_exception": FresdeskMethodNotAllowedError,
+        "raise_exception": FreshdeskMethodNotAllowedError,
         "message": "This API request used the wrong HTTP verb/method."
     },
     406: {
-        "raise_exception": FresdeskUnsupportedAcceptHeaderError,
+        "raise_exception": FreshdeskUnsupportedAcceptHeaderError,
         "message": "Only application/json and */* are supported in 'Accepted' header."
     },
     409: {
-        "raise_exception": FresdeskConflictingStateError,
+        "raise_exception": FreshdeskConflictingStateError,
         "message": "The resource that is being created/updated is in an inconsistent or conflicting state."
     },
     415: {
-        "raise_exception": FresdeskUnsupportedContentError,
+        "raise_exception": FreshdeskUnsupportedContentError,
         "message": "Content type application/xml is not supported. Only application/json is supported."
     },
     429: {
-        "raise_exception": FresdeskRateLimitError,
+        "raise_exception": FreshdeskRateLimitError,
         "message": "The API rate limit allotted for your Freshdesk domain has been exhausted."
     },
     500: {
-        "raise_exception": FresdeskServerError,
+        "raise_exception": FreshdeskServerError,
         "message": "Unexpected Server Error."
     },
 }
@@ -121,6 +121,8 @@ class FreshdeskClient:
         self.config = config
         self.session = requests.Session()
         self.base_url = BASE_URL.format(config.get("domain"))
+        self.timeout = DEFAULT_TIMEOUT
+        self.set_timeout()
 
     def __enter__(self):
         self.check_access_token()
@@ -129,6 +131,18 @@ class FreshdeskClient:
     def __exit__(self, exception_type, exception_value, traceback):
         # Kill the session instance.
         self.session.close()
+
+    def set_timeout(self):
+        """
+        Set timeout value from config, if the value is passed. 
+        Else raise an exception.
+        """
+        timeout = self.config.get("timeout", DEFAULT_TIMEOUT)
+        if ((type(timeout) in [int, float]) or 
+            (type(timeout)==str and timeout.replace('.', '', 1).isdigit())) and float(timeout):
+            self.timeout = int(float(timeout))
+        else:
+            raise Exception("The entered timeout is invalid, it should be a valid none-zero integer.")
 
     def check_access_token(self):
         """

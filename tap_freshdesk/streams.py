@@ -1,7 +1,7 @@
 from datetime import datetime
 import singer
 from singer import bookmarks
-
+from tap_freshdesk.client import FreshdeskNotFoundError
 
 LOGGER = singer.get_logger()
 PAGE_SIZE = 100
@@ -203,6 +203,16 @@ class TimeEntries(Stream):
     replication_method = 'INCREMENTAL'
     path = 'tickets/{}/time_entries'
     parent = 'tickets'
+
+    def sync_obj(self, state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter=None):
+        try:
+            return super().sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter)
+        except FreshdeskNotFoundError:
+            # Skipping 404 error as it is returned for deleted tickets and spam
+            LOGGER.warning("Could not retrieve time entries for ticket id {}. This may be caused by tickets "
+                           "marked as spam or deleted.".format(self.parent_id))
+            pass
+
 
 STREAMS = {
     "agents": Agents,
