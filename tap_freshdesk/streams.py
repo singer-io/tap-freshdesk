@@ -2,6 +2,7 @@ import copy
 from datetime import datetime as dt
 import singer
 from singer.bookmarks import get_bookmark
+from tap_freshdesk.client import FreshdeskNotFoundError
 
 
 LOGGER = singer.get_logger()
