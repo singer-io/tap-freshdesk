@@ -19,6 +19,7 @@ def get_min_bookmark(stream, streams_to_sync, start_date, state, bookmark_key, p
     if stream in streams_to_sync:
         if predefined_filter:
             stream = stream + '_' + predefined_filter
+        # LOGGER.info(f'======= {stream} {get_bookmark(state, stream, bookmark_key, start_date)}')
         min_bookmark = min(min_bookmark, get_bookmark(state, stream, bookmark_key, start_date))
 
     for child in filter(lambda x: x in streams_to_sync, stream_obj.children):
@@ -86,7 +87,7 @@ class Stream:
         """
         return base_url +  '/api/v2/'+ self.path.format(*args)
 
-    def write_records(self, catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, predefined_filter=None):
+    def write_records(self, catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, child_max_bookmarks, predefined_filter=None):
         """
         Transform the chunk of records according to the schema and write the records based on the bookmark.
         """
@@ -101,7 +102,7 @@ class Stream:
         bookmark = get_bookmark(state, stream_id, self.replication_keys[0], start_date)
         # The max bookmark so far for the child stream
         child_max_bookmark = None
-        child_max_bookmarks = {}
+        # child_max_bookmarks = {}
 
         with singer.metrics.record_counter(self.tap_stream_id) as counter:
             with singer.Transformer() as transformer:
@@ -109,6 +110,8 @@ class Stream:
                 stream_metadata = singer.metadata.to_map(stream_catalog['metadata'])
                 for row in data:
                     if self.tap_stream_id in selected_streams and row[self.replication_keys[0]] >= bookmark:
+                        # Custom fields are expected to be strings, but sometimes the API sends 
+                        # booleans. We cast those to strings to match the schema.
                         if 'custom_fields' in row:
                             row['custom_fields'] = self.transform_dict(row['custom_fields'], force_str=self.force_str)
 
@@ -123,8 +126,8 @@ class Stream:
                         child_max_bookmark = get_bookmark(state, child_obj.tap_stream_id, child_obj.replication_keys[0], start_date)
                         if child in selected_streams:
                             child_obj.parent_id = row['id']
-                            # Update the child's max_bookmark as the max of the two
-                            child_max_bookmark = max(child_max_bookmark, child_obj.sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync))
+                            # Update the child's max_bookmark as the max of the already present max value and the return value
+                            child_max_bookmark = max(child_max_bookmarks[child], child_obj.sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync))
                             child_max_bookmarks[child] = child_max_bookmark
         return max_bookmark, child_max_bookmarks
 
@@ -134,11 +137,19 @@ class Stream:
         """
         params = copy.deepcopy(self.params)
         full_url = self.build_url(client.base_url, self.parent_id)
+
+        # Update the filter keyword in the params for date-filtered streams
         if predefined_filter:
             LOGGER.info("Syncing %s with filter %s", self.tap_stream_id, predefined_filter)
             params[self.filter_keyword] = predefined_filter
+
+        # Get the minimum bookmark from the parent and the child streams
         min_bookmark = get_min_bookmark(self.tap_stream_id, streams_to_sync, start_date, state, self.replication_keys[0], predefined_filter)
         max_bookmark = min_bookmark
+        # Set the child_max_bookmarks dictionary to the minimum bookmark
+        child_max_bookmarks = {}
+        for child in self.children:
+            child_max_bookmarks[child] = min_bookmark
 
         # Add the `updated_since` param if the date_filter attribute is True
         if self.date_filter:
@@ -152,7 +163,7 @@ class Stream:
             data = client.request(full_url, params)
             self.paginate = len(data) >= PAGE_SIZE
             params['page'] += 1
-            max_bookmark, child_max_bookmarks = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, predefined_filter)
+            max_bookmark, child_max_bookmarks = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, child_max_bookmarks, predefined_filter)
         write_bookmark(self.tap_stream_id, selected_streams, max_bookmark, state, predefined_filter)
 
         # Write the max_bookmark for the child streams in the state files if they are selected.
@@ -203,13 +214,14 @@ class DateFilteredStream(Stream):
 
             super().sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync, each_filter)
 
+            # Update the max child bookmarks dictionary with the maximum from the child and the existing bookmark
             max_child_bms.update({child: max(max_child_bms.get(child, ""), get_bookmark(state, child, "updated_at", start_date))
                                   for child in self.children
                                   if child in selected_streams})
 
+        # Write the child stream bookmarks with the max value found
         for child, bm in max_child_bms.items():
             singer.write_bookmark(state, child, "updated_at", bm)
-        return state
 
 class Tickets(DateFilteredStream):
     tap_stream_id = 'tickets'
@@ -248,7 +260,9 @@ class ChildStream(Stream):
         The child stream sync_obj() method to sync the child records
         """
         params = copy.deepcopy(self.params)
+        # Build the url for the request
         full_url = self.build_url(client.base_url, self.parent_id)
+        # Get the min bookmark from the parent and the child streams
         min_bookmark = get_min_bookmark(self.tap_stream_id, streams_to_sync, start_date, state, self.replication_keys[0], None)
         max_bookmark = min_bookmark
         params['page'] = 1
