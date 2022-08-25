@@ -12,11 +12,7 @@
             "format": "date-time"
         },
         "last_edited_user_id": {
-            "type": [
-              "null", 
-              "string"
-            ], 
-            "format": "date-time"
+            "type": ["null", "integer"]
         }, 
         "id": {
             "type": ["null", "integer"]
