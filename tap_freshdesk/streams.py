@@ -90,12 +90,13 @@ class Stream:
         """
         Transform the chunk of records according to the schema and write the records based on the bookmark.
         """
+        params = copy.deepcopy(self.params)
         stream_catalog = get_schema(catalog, self.tap_stream_id)
         stream_id = self.tap_stream_id
 
         # Append the predefined filter in case it's present
         if predefined_filter:
-            self.params[self.filter_keyword] = predefined_filter
+            params[self.filter_keyword] = predefined_filter
             stream_id = stream_id + '_' + predefined_filter
         bookmark = get_bookmark(state, stream_id, self.replication_keys[0], start_date)
         # The max bookmark so far for the child stream
@@ -128,25 +129,29 @@ class Stream:
         return max_bookmark, child_max_bookmarks
 
     def sync_obj(self, state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter=None):
+        """
+        The base stream class sync_obj() function to fetch records.
+        """
+        params = copy.deepcopy(self.params)
         full_url = self.build_url(client.base_url, self.parent_id)
         if predefined_filter:
-            LOGGER.info("Syncing tickets with filter %s", predefined_filter)
-            self.params[self.filter_keyword] = predefined_filter
+            LOGGER.info("Syncing %s with filter %s", self.tap_stream_id, predefined_filter)
+            params[self.filter_keyword] = predefined_filter
         min_bookmark = get_min_bookmark(self.tap_stream_id, streams_to_sync, start_date, state, self.replication_keys[0], predefined_filter)
         max_bookmark = min_bookmark
 
         # Add the `updated_since` param if the date_filter attribute is True
         if self.date_filter:
-            self.params[self.date_filter] = min_bookmark
-        self.params['page'] = 1
+            params[self.date_filter] = min_bookmark
+        params['page'] = 1
         self.paginate = True
 
         LOGGER.info("Syncing %s from %s", self.tap_stream_id, min_bookmark)
         # Paginate through the request
         while self.paginate:
-            data = client.request(full_url, self.params)
+            data = client.request(full_url, params)
             self.paginate = len(data) >= PAGE_SIZE
-            self.params['page'] += 1
+            params['page'] += 1
             max_bookmark, child_max_bookmarks = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, predefined_filter)
         write_bookmark(self.tap_stream_id, selected_streams, max_bookmark, state, predefined_filter)
 
@@ -242,18 +247,19 @@ class ChildStream(Stream):
         """
         The child stream sync_obj() method to sync the child records
         """
+        params = copy.deepcopy(self.params)
         full_url = self.build_url(client.base_url, self.parent_id)
         min_bookmark = get_min_bookmark(self.tap_stream_id, streams_to_sync, start_date, state, self.replication_keys[0], None)
         max_bookmark = min_bookmark
-        self.params['page'] = 1
+        params['page'] = 1
         self.paginate = True
 
         LOGGER.info("Syncing %s from %s", self.tap_stream_id, min_bookmark)
         # Paginate through the records
         while self.paginate:
-            data = client.request(full_url, self.params)
+            data = client.request(full_url, params)
             self.paginate = len(data) >= PAGE_SIZE
-            self.params['page'] += 1
+            params['page'] += 1
             bookmark, _ = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, None)
             max_bookmark = max(max_bookmark, bookmark)
         return max_bookmark
