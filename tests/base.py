@@ -20,7 +20,7 @@ class FreshdeskBaseTest(unittest.TestCase):
     start_date = ""
     START_DATE_FORMAT = "%Y-%m-%dT00:00:00Z" # %H:%M:%SZ
     BOOKMARK_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
-
+    RECORD_REPLICATION_KEY_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
     OBEYS_START_DATE = "obey-start-date"
     
     #######################################
