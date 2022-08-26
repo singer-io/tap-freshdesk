@@ -4,6 +4,16 @@
         "body_text": {
             "type": ["null", "string"]
         },
+        "last_edited_at": {
+            "type": [
+              "null", 
+              "string"
+            ], 
+            "format": "date-time"
+        },
+        "last_edited_user_id": {
+            "type": ["null", "integer"]
+        }, 
         "id": {
             "type": ["null", "integer"]
         },
