@@ -23,11 +23,11 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
         expected_streams = expected_streams - {'satisfaction_ratings', 'time_entries'}
         
-        # running start_date_test for `ticket_fields` stream
+        # Running start_date_test for `ticket_fields` stream
         expected_stream_1 = {"ticket_fields"}
         self.run_start_date(expected_stream_1, "2019-07-19T00:00:00Z")
 
-        # running start_date_test for rest of the streams
+        # Running start_date_test for rest of the streams
         expected_streams = expected_streams - expected_stream_1
         self.run_start_date(expected_streams, "2022-07-19T00:00:00Z")
 
