@@ -109,7 +109,7 @@ class Stream:
                 stream_metadata = singer.metadata.to_map(stream_catalog['metadata'])
                 for row in data:
                     if self.tap_stream_id in selected_streams and row[self.replication_keys[0]] >= bookmark:
-                        # Custom fields are expected to be strings, but sometimes the API sends 
+                        # Custom fields are expected to be strings, but sometimes the API sends
                         # booleans. We cast those to strings to match the schema.
                         if 'custom_fields' in row:
                             row['custom_fields'] = self.transform_dict(row['custom_fields'], force_str=self.force_str)
