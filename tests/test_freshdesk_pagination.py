@@ -20,7 +20,7 @@ class PaginationTest(FreshdeskBaseTest):
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
 
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
+        # Add supported streams 1 by 1
         expected_streams = self.expected_streams() - {"time_entries", "satisfaction_ratings"}
         
         found_catalogs = self.run_and_verify_check_mode(conn_id)
@@ -43,7 +43,7 @@ class PaginationTest(FreshdeskBaseTest):
             with self.subTest(stream=stream):
                 # Not able to generate more data as roles stream requires pro account.
                 # So, updating page_sie according to data available.
-                if stream == "roles":
+                if stream == "roles" or stream == "ticket_fields":
                     page_size = 2
                 else:
                     page_size = 100

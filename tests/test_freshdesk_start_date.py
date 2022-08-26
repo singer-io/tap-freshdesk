@@ -17,6 +17,21 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         return "tap_tester_freshdesk_start_date_test"
 
     def test_run(self):
+        # Streams to verify start date tests
+        expected_streams = self.expected_streams()
+
+        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
+        expected_streams = expected_streams - {'satisfaction_ratings', 'time_entries'}
+        
+        # running start_date_test for `ticket_fields` stream
+        expected_stream_1 = {"ticket_fields"}
+        self.run_start_date(expected_stream_1, "2019-07-19T00:00:00Z")
+
+        # running start_date_test for rest of the streams
+        expected_streams = expected_streams - expected_stream_1
+        self.run_start_date(expected_streams, "2022-07-19T00:00:00Z")
+
+    def run_start_date(self, expected_streams, new_start_date):
         """   
         • Verify that a sync with a later start date has at least one record synced
           and less records than the 1st sync with a previous start date
@@ -28,15 +43,12 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         """
 
         self.start_date_1 = self.get_properties().get('start_date')
-        self.start_date_2 = "2022-07-19T00:00:00Z"
+        self.start_date_2 = new_start_date
 
         self.start_date = self.start_date_1
 
         start_date_1_epoch = self.dt_to_ts(self.start_date_1, self.START_DATE_FORMAT)
         start_date_2_epoch = self.dt_to_ts(self.start_date_2, self.START_DATE_FORMAT)
-
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {'satisfaction_ratings', 'time_entries'}
 
         ##########################################################################
         ### First Sync
