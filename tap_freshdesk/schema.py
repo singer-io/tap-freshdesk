@@ -21,7 +21,7 @@ def get_schemas():
     for stream_name, stream_metadata in STREAMS.items():
         schema_path = get_abs_path('schemas/{}.json'.format(stream_name))
 
-        with open(schema_path) as file:
+        with open(schema_path) as file: # pylint: disable=unspecified-encoding
             schema = json.load(file)
 
         schemas[stream_name] = schema
