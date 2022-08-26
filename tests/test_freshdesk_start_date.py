@@ -35,7 +35,8 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         start_date_1_epoch = self.dt_to_ts(self.start_date_1, self.START_DATE_FORMAT)
         start_date_2_epoch = self.dt_to_ts(self.start_date_2, self.START_DATE_FORMAT)
 
-        expected_streams = self.expected_streams() - {'conversations', 'satisfaction_ratings', 'time_entries'}
+        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
+        expected_streams = self.expected_streams() - {'satisfaction_ratings', 'time_entries'}
 
         ##########################################################################
         ### First Sync
