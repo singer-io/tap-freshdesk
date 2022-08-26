@@ -47,8 +47,8 @@ class TestFreshdeskAllFields(FreshdeskBaseTest):
         """
         
         # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        # expected_streams = self.expected_streams() - {"time_entries", "satisfaction_ratings"}
-        expected_streams = {'contacts', 'tickets'}
+        expected_streams = self.expected_streams() - {"time_entries", "satisfaction_ratings"}
+
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
 
