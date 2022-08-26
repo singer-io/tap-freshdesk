@@ -19,7 +19,6 @@ def get_min_bookmark(stream, streams_to_sync, start_date, state, bookmark_key, p
     if stream in streams_to_sync:
         if predefined_filter:
             stream = stream + '_' + predefined_filter
-        # LOGGER.info(f'======= {stream} {get_bookmark(state, stream, bookmark_key, start_date)}')
         min_bookmark = min(min_bookmark, get_bookmark(state, stream, bookmark_key, start_date))
 
     for child in filter(lambda x: x in streams_to_sync, stream_obj.children):
@@ -123,11 +122,11 @@ class Stream:
                     # Sync the child streams if they are selected
                     for child in self.children:
                         child_obj = STREAMS[child]()
-                        child_max_bookmark = get_bookmark(state, child_obj.tap_stream_id, child_obj.replication_keys[0], start_date)
                         if child in selected_streams:
                             child_obj.parent_id = row['id']
+                            child_max_bookmark = get_bookmark(state, child_obj.tap_stream_id, child_obj.replication_keys[0], start_date)
                             # Update the child's max_bookmark as the max of the already present max value and the return value
-                            child_max_bookmark = max(child_max_bookmarks[child], child_obj.sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync))
+                            child_max_bookmark = max(child_max_bookmarks.get(child, child_max_bookmark), child_obj.sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync))
                             child_max_bookmarks[child] = child_max_bookmark
         return max_bookmark, child_max_bookmarks
 
@@ -146,10 +145,8 @@ class Stream:
         # Get the minimum bookmark from the parent and the child streams
         min_bookmark = get_min_bookmark(self.tap_stream_id, streams_to_sync, start_date, state, self.replication_keys[0], predefined_filter)
         max_bookmark = min_bookmark
-        # Set the child_max_bookmarks dictionary to the minimum bookmark
+        # Initialize the child_max_bookmarks dictionary
         child_max_bookmarks = {}
-        for child in self.children:
-            child_max_bookmarks[child] = min_bookmark
 
         # Add the `updated_since` param if the date_filter attribute is True
         if self.date_filter:
@@ -203,7 +200,7 @@ class Roles(Stream):
 class DateFilteredStream(Stream):
     def sync_obj(self, state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter=None):
         """
-        The overridden sync_obj() method to fetch the ticket records with different filters.
+        The overridden sync_obj() method to fetch the records with different filters.
         """
         dup_state = copy.deepcopy(state)
         max_child_bms = {}
@@ -274,6 +271,7 @@ class ChildStream(Stream):
             data = client.request(full_url, params)
             self.paginate = len(data) >= PAGE_SIZE
             params['page'] += 1
+            # Write the records based on the bookmark and return the max_bookmark for the page
             bookmark, _ = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, None)
             max_bookmark = max(max_bookmark, bookmark)
         return max_bookmark
