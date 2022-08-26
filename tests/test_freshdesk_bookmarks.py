@@ -33,7 +33,10 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
             different values for the replication key
         """
         
-        expected_streams = self.expected_streams() - {'tickets', 'contacts'}
+        # Tickets and Contacts stream also collectes some deleted data on the basis of filter param.
+        # Written seprate bookmark test case for them in test_freshdesk_bookmarks_stream_with_fillter_param.py
+        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
+        expected_streams = self.expected_streams() - {'tickets', 'contacts'} - {"satisfaction_ratings", "time_entries"}
 
         expected_replication_keys = self.expected_replication_keys()
         expected_replication_methods = self.expected_replication_method()
@@ -49,7 +52,7 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
 
         # Table and field selection
         catalog_entries = [catalog for catalog in found_catalogs
-                           if catalog.get('tap_stream_id') in streams_to_test]
+                           if catalog.get('tap_stream_id') in expected_streams]
 
         self.perform_and_verify_table_and_field_selection(
             conn_id, catalog_entries)

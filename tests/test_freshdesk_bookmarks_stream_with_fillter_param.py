@@ -101,25 +101,25 @@ class BookmarkTest(FreshdeskBaseTest):
                 first_bookmark_value_ts = self.dt_to_ts(first_bookmark_value, self.BOOKMARK_FORMAT)
                 second_bookmark_value_ts = self.dt_to_ts(second_bookmark_value, self.BOOKMARK_FORMAT)
 
-                simulated_bookmark_value = self.dt_to_ts(new_states['bookmarks'][stream][replication_key])
+                simulated_bookmark_value = self.dt_to_ts(new_states['bookmarks'][stream][replication_key], self.BOOKMARK_FORMAT)
 
                 # Get bookmark for contacts_deleted/tickets_deleted
-                first_1_bookmark_value = first_sync_bookmarks.get('bookmarks', {}).get(filter_streams[0], {}).get(replication_key)
-                second_1_bookmark_value = second_sync_bookmarks.get('bookmarks', {}).get(filter_streams[0], {}).get(replication_key)
+                first_1_bookmark_value = first_sync_bookmarks.get('bookmarks', {}).get(stream + '_' +filter_streams[0], {}).get(replication_key)
+                second_1_bookmark_value = second_sync_bookmarks.get('bookmarks', {}).get(stream + '_' +filter_streams[0], {}).get(replication_key)
                 
                 first_1_bookmark_value_ts = self.dt_to_ts(first_bookmark_value, self.BOOKMARK_FORMAT)
                 second_1_bookmark_value_ts = self.dt_to_ts(second_bookmark_value, self.BOOKMARK_FORMAT)
                 
-                simulated_1_bookmark_value = self.dt_to_ts(new_states['bookmarks'][filter_streams[0]][replication_key])
+                simulated_1_bookmark_value = self.dt_to_ts(new_states['bookmarks'][stream + '_' +filter_streams[0]][replication_key], self.BOOKMARK_FORMAT)
 
                 # Get bookmark for contacts_blocked/tickets_spam
-                first_2_bookmark_value = first_sync_bookmarks.get('bookmarks', {}).get(filter_streams[1], {}).get(replication_key)
-                second_2_bookmark_value = second_sync_bookmarks.get('bookmarks', {}).get(filter_streams[1], {}).get(replication_key)
+                first_2_bookmark_value = first_sync_bookmarks.get('bookmarks', {}).get(stream + '_' +filter_streams[1], {}).get(replication_key)
+                second_2_bookmark_value = second_sync_bookmarks.get('bookmarks', {}).get(stream + '_' +filter_streams[1], {}).get(replication_key)
 
                 first_2_bookmark_value_ts = self.dt_to_ts(first_bookmark_value, self.BOOKMARK_FORMAT)
                 second_2_bookmark_value_ts = self.dt_to_ts(second_bookmark_value, self.BOOKMARK_FORMAT)
                 
-                simulated_2_bookmark_value = self.dt_to_ts(new_states['bookmarks'][filter_streams[0]][replication_key])
+                simulated_2_bookmark_value = self.dt_to_ts(new_states['bookmarks'][stream + '_' +filter_streams[1]][replication_key], self.BOOKMARK_FORMAT)
                 
                 # Verify the first sync sets bookmarks of the expected form
                 self.assertIsNotNone(first_bookmark_value)
