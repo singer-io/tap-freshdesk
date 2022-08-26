@@ -13,7 +13,6 @@ KNOWN_MISSING_FIELDS = {
         'twitter_id',
         'name',
         'phone',
-        'deleted',
         'email'
     },
     'groups': {
@@ -23,6 +22,13 @@ KNOWN_MISSING_FIELDS = {
     'agents': {
         'group_ids',
         'role_ids'
+    },
+    'contacts': {
+        'view_all_tickets',
+        'other_companies',
+        'other_emails',
+        'tags',
+        'avatar'
     }
 }
 
@@ -41,8 +47,8 @@ class TestFreshdeskAllFields(FreshdeskBaseTest):
         """
         
         # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {"time_entries", "satisfaction_ratings"}
-        
+        # expected_streams = self.expected_streams() - {"time_entries", "satisfaction_ratings"}
+        expected_streams = {'contacts', 'tickets'}
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
 
