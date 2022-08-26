@@ -158,7 +158,7 @@ class FreshdeskClient:
                           max_tries=5,
                           factor=2)
     @utils.ratelimit(1, 2)
-    def request(self, url, params={}):
+    def request(self, url, params=None):
         """
         Call rest API and return the response in case of status code 200.
         """
@@ -167,13 +167,13 @@ class FreshdeskClient:
             headers['User-Agent'] = self.config['user_agent']
 
         req = requests.Request('GET', url, params=params, auth=(self.config['api_key'], ""), headers=headers).prepare()
-        LOGGER.info("GET {}".format(req.url))
+        LOGGER.info("GET %s", req.url)
         response = self.session.send(req, timeout=self.timeout)
 
         # Call the function again if the rate limit is exceeded
         if 'Retry-After' in response.headers:
             retry_after = int(response.headers['Retry-After'])
-            LOGGER.info("Rate limit reached. Sleeping for {} seconds".format(retry_after))
+            LOGGER.info("Rate limit reached. Sleeping for %s seconds", retry_after)
             time.sleep(retry_after)
             return self.request(url, params)
 
