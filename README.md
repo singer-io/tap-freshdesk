@@ -42,7 +42,7 @@ This tap:
     {
       "api_key": "your-api-token",
       "domain": "subdomain",
-      "request_timeout": 100,
+      "request_timeout": 300,
       "start_date": "2017-01-17T20:32:05Z"
     }
     ```
