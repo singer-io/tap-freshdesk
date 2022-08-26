@@ -68,4 +68,3 @@ class TestFreshdeskAutomaticFields(FreshdeskBaseTest):
                     len(primary_keys_list),
                     len(unique_primary_keys_list),
                     msg="Replicated record does not have unique primary key values.")
-                    from tap_tester import runner, connections
