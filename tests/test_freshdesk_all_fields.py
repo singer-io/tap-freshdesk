@@ -4,7 +4,7 @@ from tap_tester import runner, connections, menagerie
 
 from base import FreshdeskBaseTest
 
-# As we are not able to generate following fields by Freshdesk UI, so removed it fr0m expectation list.
+# As we are not able to generate following fields by Freshdesk UI, so removed it from expectation list.
 KNOWN_MISSING_FIELDS = {
     'tickets': {
         'facebook_id',
@@ -33,7 +33,7 @@ KNOWN_MISSING_FIELDS = {
 }
 
 class TestFreshdeskAllFields(FreshdeskBaseTest):
-    """Test that with all fields selected for a stream automatic and available fields are  replicated"""
+    """Test that with all fields selected for a stream automatic and available fields are replicated"""
 
     @staticmethod
     def name():
