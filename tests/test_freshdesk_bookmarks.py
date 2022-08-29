@@ -26,7 +26,6 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         • Verify that a second sync respects the bookmark
             All data of the second sync is >= the bookmark from the first sync
             The number of records in the 2nd sync is less then the first
-        • Verify that for full table stream, all data replicated in sync 1 is replicated again in sync 2.
         
         PREREQUISITE
         For EACH stream that is incrementally replicated there are multiple rows of data with
