@@ -1,6 +1,6 @@
 import os
 import requests
-from tap_tester import connections, runner
+from tap_tester import connections, runner, LOGGER
 
 from base import FreshdeskBaseTest
 from datetime import datetime, timedelta
@@ -61,7 +61,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         ### Update START DATE Between Syncs
         ##########################################################################
 
-        print("REPLICATION START DATE CHANGE: {} ===>>> {} ".format(self.start_date, self.start_date_2))
+        LOGGER.info("REPLICATION START DATE CHANGE: {} ===>>> {} ".format(self.start_date, self.start_date_2))
         self.start_date = self.start_date_2
 
         ##########################################################################

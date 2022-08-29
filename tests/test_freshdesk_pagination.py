@@ -1,5 +1,5 @@
 from math import ceil
-from tap_tester import menagerie, connections, runner
+from tap_tester import menagerie, connections, runner, LOGGER
 import re
 
 from base import FreshdeskBaseTest
@@ -10,7 +10,7 @@ class PaginationTest(FreshdeskBaseTest):
         return "tap_tester_freshdesk_pagination_test"
 
     def test_name(self):
-        print("Pagination Test for tap-freshdesk")
+        LOGGER.info("Pagination Test for tap-freshdesk")
 
     def test_run(self):
 
