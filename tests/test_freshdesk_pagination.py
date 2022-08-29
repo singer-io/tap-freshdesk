@@ -56,12 +56,6 @@ class PaginationTest(FreshdeskBaseTest):
         # Test by stream
         for stream in expected_streams:
             with self.subTest(stream=stream):
-                # Not able to generate more data as roles stream requires pro account.
-                # So, updating page_sie according to data available.
-                if stream == "roles":
-                    page_size = 2
-                else:
-                    page_size = 100
                 # Expected values
                 expected_primary_keys = self.expected_primary_keys()[stream]
                 
