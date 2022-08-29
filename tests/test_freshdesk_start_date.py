@@ -150,6 +150,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
                 # Currently all streams obey start date.  Leaving this in incase one of the two remaining
                 # streams are implemented in the future and do not obey start date
                 # else:
+                #     print("Stream {} does NOT obey start_date".format(stream))
                     
                 #     # Verify that the 2nd sync with a later start date replicates the same number of
                 #     # records as the 1st sync.
