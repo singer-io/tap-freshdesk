@@ -17,10 +17,12 @@ def get_min_bookmark(stream, streams_to_sync, start_date, state, bookmark_key, p
     stream_obj = STREAMS[stream]()
     min_bookmark =  dt.strftime(dt.now(), DATETIME_FMT)
     if stream in streams_to_sync:
+        # Get minimum of stream's bookmark(start date in case of no bookmark) and min_bookmark
         if predefined_filter:
             stream = stream + '_' + predefined_filter
         min_bookmark = min(min_bookmark, get_bookmark(state, stream, bookmark_key, start_date))
 
+    # Iterate through all children and return minimum bookmark among all.
     for child in filter(lambda x: x in streams_to_sync, stream_obj.children):
         min_bookmark = min(min_bookmark, get_min_bookmark(child, streams_to_sync, start_date, state, bookmark_key))
 
@@ -49,9 +51,9 @@ class Stream:
     Base class representing tap-freshdesk streams.
     """
     tap_stream_id = None
-    replication_method = None
-    replication_keys = []
-    key_properties = []
+    replication_method = 'INCREMENTAL'
+    replication_keys = ['updated_at']
+    key_properties = ['id']
     endpoint = None
     filter_param = False
     children = []
@@ -101,7 +103,6 @@ class Stream:
         bookmark = get_bookmark(state, stream_id, self.replication_keys[0], start_date)
         # The max bookmark so far for the child stream
         child_max_bookmark = None
-        # child_max_bookmarks = {}
 
         with singer.metrics.record_counter(self.tap_stream_id) as counter:
             with singer.Transformer() as transformer:
@@ -109,7 +110,7 @@ class Stream:
                 stream_metadata = singer.metadata.to_map(stream_catalog['metadata'])
                 for row in data:
                     if self.tap_stream_id in selected_streams and row[self.replication_keys[0]] >= bookmark:
-                        # Custom fields are expected to be strings, but sometimes the API sends 
+                        # Custom fields are expected to be strings, but sometimes the API sends
                         # booleans. We cast those to strings to match the schema.
                         if 'custom_fields' in row:
                             row['custom_fields'] = self.transform_dict(row['custom_fields'], force_str=self.force_str)
@@ -170,31 +171,31 @@ class Stream:
 
 
 class Agents(Stream):
+    """
+    https://developer.freshdesk.com/api/#list_all_agents
+    """
     tap_stream_id = 'agents'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'agents'
 
 class Companies(Stream):
+    """
+    https://developer.freshdesk.com/api/#list_all_companies
+    """
     tap_stream_id = 'companies'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'companies'
 
 class Groups(Stream):
+    """
+    https://developer.freshdesk.com/api/#list_all_groups
+    """
     tap_stream_id = 'groups'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'groups'
 
 class Roles(Stream):
+    """
+    https://developer.freshdesk.com/api/#list_all_roles
+    """
     tap_stream_id = 'roles'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'roles'
 
 class DateFilteredStream(Stream):
@@ -221,17 +222,17 @@ class DateFilteredStream(Stream):
             singer.write_bookmark(state, child, "updated_at", bm)
 
 class Tickets(DateFilteredStream):
+    """
+    https://developer.freshdesk.com/api/#list_all_tickets
+    """
     tap_stream_id = 'tickets'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'tickets'
     children = ['conversations', 'satisfaction_ratings', 'time_entries']
     id_key = 'id'
     date_filter = 'updated_since'
     params = {
         "per_page": PAGE_SIZE,
-        'order_by': replication_keys[0],
+        'order_by': "updated_at",
         'order_type': "asc",
         'include': "requester,company,stats"
     }
@@ -239,10 +240,10 @@ class Tickets(DateFilteredStream):
     filters = [None, 'deleted', 'spam']
 
 class Contacts(DateFilteredStream):
+    """
+    https://developer.freshdesk.com/api/#list_all_contacts
+    """
     tap_stream_id = 'contacts'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'contacts'
     id_key = 'id'
     date_filter = '_updated_since'
@@ -277,27 +278,27 @@ class ChildStream(Stream):
         return max_bookmark
 
 class Conversations(ChildStream):
+    """
+    https://developer.freshdesk.com/api/#list_all_ticket_notes
+    """
     tap_stream_id = 'conversations'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'tickets/{}/conversations'
     parent = 'tickets'
 
 
 class SatisfactionRatings(ChildStream):
+    """
+    https://developer.freshdesk.com/api/#view_ticket_satisfaction_ratings
+    """
     tap_stream_id = 'satisfaction_ratings'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'tickets/{}/satisfaction_ratings'
     parent = 'tickets'
 
 class TimeEntries(ChildStream):
+    """
+    https://developer.freshdesk.com/api/#list_all_ticket_timeentries
+    """
     tap_stream_id = 'time_entries'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'tickets/{}/time_entries'
     parent = 'tickets'
 

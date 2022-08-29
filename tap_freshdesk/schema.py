@@ -27,11 +27,12 @@ def get_schemas():
         schemas[stream_name] = schema
         schema = singer.resolve_schema_references(schema, refs)
 
+        replication_keys = (hasattr(stream_metadata, 'replication_keys') or None) and stream_metadata.replication_keys
         mdata = metadata.new()
         mdata = metadata.get_standard_metadata(
                 schema=schema,
                 key_properties = (hasattr(stream_metadata, 'key_properties') or None) and stream_metadata.key_properties,
-                valid_replication_keys = (hasattr(stream_metadata, 'replication_keys') or None) and stream_metadata.replication_keys,
+                valid_replication_keys = replication_keys,
                 replication_method = (hasattr(stream_metadata, 'replication_method') or None) and stream_metadata.replication_method
             )
         mdata = metadata.to_map(mdata)
@@ -39,7 +40,6 @@ def get_schemas():
         # Loop through all keys and make replication keys of automatic inclusion
         for field_name in schema['properties'].keys():
 
-            replication_keys = (hasattr(stream_metadata, 'replication_keys') or None) and stream_metadata.replication_keys
             if replication_keys and field_name in replication_keys:
                 mdata = metadata.write(mdata, ('properties', field_name), 'inclusion', 'automatic')
 
