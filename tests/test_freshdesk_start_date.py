@@ -1,9 +1,7 @@
 import os
-import requests
 from tap_tester import connections, runner, LOGGER
 
 from base import FreshdeskBaseTest
-from datetime import datetime, timedelta
 
 
 class FreshdeskStartDateTest(FreshdeskBaseTest):
@@ -150,8 +148,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
                 # Currently all streams obey start date.  Leaving this in incase one of the two remaining
                 # streams are implemented in the future and do not obey start date
                 # else:
-                #     print("Stream {} does NOT obey start_date".format(stream))
-                    
+                #     print("Stream {} does NOT obey start_date".format(stream))                  
                 #     # Verify that the 2nd sync with a later start date replicates the same number of
                 #     # records as the 1st sync.
                 #     self.assertEqual(record_count_sync_2, record_count_sync_1)

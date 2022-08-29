@@ -4,7 +4,7 @@ from tap_tester import runner, connections, menagerie
 
 from base import FreshdeskBaseTest
 
-# As we are not able to generate following fields by Freshdesk UI, so removed it form expectation list.
+# As we are not able to generate following fields by Freshdesk UI, so removed it fr0m expectation list.
 KNOWN_MISSING_FIELDS = {
     'tickets': {
         'facebook_id',

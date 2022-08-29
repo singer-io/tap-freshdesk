@@ -8,8 +8,9 @@ from datetime import datetime as dt
 from base import FreshdeskBaseTest
 
 class BookmarkTest(FreshdeskBaseTest):
-    """Test tap sets a separate bookmark for PUBLISHED and SCHEDULED tweets and 
-    respects it for the next sync of a tweets stream"""
+    """Test tap sets a separate bookmark for tickets and contacts streams filter param 
+    tickets_deleted, tickets_spam, contacts_deleted and contacts_blocked 
+    and respects it for the next sync"""
     
     def name(self):
         return "tap_tester_freshdesk_bookmark_test"

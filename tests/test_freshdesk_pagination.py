@@ -1,5 +1,5 @@
 from math import ceil
-from tap_tester import menagerie, connections, runner, LOGGER
+from tap_tester import menagerie, connections, runner
 import re
 
 from base import FreshdeskBaseTest
@@ -10,18 +10,33 @@ class PaginationTest(FreshdeskBaseTest):
         return "tap_tester_freshdesk_pagination_test"
 
     def test_name(self):
-        LOGGER.info("Pagination Test for tap-freshdesk")
+        print("Pagination Test for tap-freshdesk")
 
     def test_run(self):
+        """
+        • Verify that for each stream you can get multiple pages of data.  
+        This requires we ensure more than 1 page of data exists at all times for any given stream.
+        • Verify by pks that the data replicated matches the data we expect.
+        """
+        
+        # For roles stream data present in test account is limited. So, adding configurable page_size "2" 
+        streams_to_test = {"roles"}
+        self.run_test(streams_to_test, 2)
+
+        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
+        streams_to_test = self.expected_streams() - {"time_entries", "satisfaction_ratings"} - {"roles"}
+        self.run_test(streams_to_test, 100)
+
+    def run_test(self, streams_to_test ,page_size):
 
         # Page size for pagination supported streams
-        page_size = 100
+        self.PAGE_SIZE = page_size
 
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
 
         # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {"time_entries", "satisfaction_ratings"}
+        expected_streams = streams_to_test
         
         found_catalogs = self.run_and_verify_check_mode(conn_id)
 
