@@ -1,9 +1,10 @@
 import time
+import collections
+import functools
 import backoff
 import requests
 import singer
-import collections
-import functools
+
 
 LOGGER = singer.get_logger()
 BASE_URL = "https://{}.freshdesk.com"
