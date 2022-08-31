@@ -1,6 +1,4 @@
-import tap_tester.connections as connections
-import tap_tester.runner as runner
-import tap_tester.menagerie as menagerie
+from tap_tester import connections, runner, menagerie
 import dateutil.parser
 from datetime import timedelta
 from datetime import datetime as dt

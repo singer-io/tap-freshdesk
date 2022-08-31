@@ -1,6 +1,5 @@
 from math import ceil
-from tap_tester import menagerie, connections, runner, LOGGER
-import re
+from tap_tester import connections, runner, LOGGER
 
 from base import FreshdeskBaseTest
 
