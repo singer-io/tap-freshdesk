@@ -77,11 +77,11 @@ class TestExceptionHanfling(unittest.TestCase):
         # Verify that an error message is expected
         self.assertEqual(str(e.exception), expected_message)
 
-    def test_json_decoder_error(self):
+    def json_decoder_error(self):
         """Test for invalid json response, tap does not throw JSON decoder error."""
-        mock_response = get_response(400)
+        mock_response = get_response(400, {"description": "Client or Validation Error", "code": None})
         mock_response._content = "ABC".encode()
-        expected_message = "HTTP-error-code: {}, Error: {}".format(400, "The request body/query string is not in the correct format.")
+        expected_message = "HTTP-error-code: {}, Error: {}".format(400, "Client or Validation Error")
         with self.assertRaises(client.FreshdeskValidationError) as e:
             raise_for_error(mock_response)
 
@@ -99,7 +99,7 @@ class TestBackoffHandling(unittest.TestCase):
         ["For error 500", lambda *x,**y: get_response(500), client.FreshdeskServerError],
         ["For 503 (unknown 5xx error)", lambda *x,**y:get_response(503), client.Server5xxError],   # Unknown 5xx error
         ["For Connection Error", requests.ConnectionError, requests.ConnectionError],
-        ["For timeout Error", requests.Timeout, requests.Timeout],
+        ["For timeour Error", requests.Timeout, requests.Timeout],
     ])
     @mock.patch("requests.Session.send")
     @mock.patch("time.sleep")
@@ -178,4 +178,4 @@ class TestSkip404(unittest.TestCase):
         stream.sync_obj({}, "START_DATE", _client, {}, [], [])
 
         # Verify that error is not raised and the warning logger is called.
-        mock_logger.assert_called_with("Could not retrieve time entries for ticket id 10. This may be caused by tickets marked as spam or deleted.")
+        mock_logger.assert_called_with("Could not retrieve time entries for ticket id %s. This may be caused by tickets marked as spam or deleted.", 10)

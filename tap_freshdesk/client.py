@@ -3,6 +3,7 @@ import time
 import backoff
 import requests
 import singer
+from simplejson import JSONDecodeError
 from tap_freshdesk import utils
 
 LOGGER = singer.get_logger()
@@ -86,34 +87,31 @@ ERROR_CODE_EXCEPTION_MAPPING = {
     500: {
         "raise_exception": FreshdeskServerError,
         "message": "Unexpected Server Error."
-    },
+    }
 }
 
 def raise_for_error(response):
     """
     Retrieve the error code and the error message from the response and return custom exceptions accordingly.
     """
+    error_code = response.status_code
+    # Forming a response message for raising a custom exception
     try:
-        response.raise_for_status()
-    except (requests.HTTPError) as error:
-        error_code = response.status_code
-        # Forming a response message for raising a custom exception
-        try:
-            response_json = response.json()
-        except Exception:
-            response_json = {}
+        response_json = response.json()
+    except JSONDecodeError:
+        response_json = {}
 
-        if error_code not in ERROR_CODE_EXCEPTION_MAPPING and error_code > 500:
-            # Raise `Server5xxError` for all 5xx unknown error
-            exc = Server5xxError
-        else:
-            exc = ERROR_CODE_EXCEPTION_MAPPING.get(error_code, {}).get("raise_exception", FreshdeskException)
-        message = response_json.get("description", ERROR_CODE_EXCEPTION_MAPPING.get(error_code, {}).get("message", "Unknown Error"))
-        code = response_json.get("code", "")
-        if code:
-            error_code = f"{str(error_code)} {code}"
-        formatted_message = "HTTP-error-code: {}, Error: {}".format(error_code, message)
-        raise exc(formatted_message) from None
+    if error_code not in ERROR_CODE_EXCEPTION_MAPPING and error_code > 500:
+        # Raise `Server5xxError` for all 5xx unknown error
+        exc = Server5xxError
+    else:
+        exc = ERROR_CODE_EXCEPTION_MAPPING.get(error_code, {}).get("raise_exception", FreshdeskException)
+    message = response_json.get("description", ERROR_CODE_EXCEPTION_MAPPING.get(error_code, {}).get("message", "Unknown Error"))
+    code = response_json.get("code", "")
+    if code:
+        error_code = f"{str(error_code)} {code}"
+    formatted_message = "HTTP-error-code: {}, Error: {}".format(error_code, message)
+    raise exc(formatted_message) from None
 
 class FreshdeskClient:
     """
@@ -137,12 +135,12 @@ class FreshdeskClient:
 
     def set_timeout(self):
         """
-        Set timeout value from config, if the value is passed. 
+        Set timeout value from config, if the value is passed.
         Else raise an exception.
         """
         timeout = self.config.get("request_timeout", REQUEST_TIMEOUT)
-        if ((type(timeout) in [int, float]) or 
-            (type(timeout)==str and timeout.replace('.', '', 1).isdigit())) and float(timeout):
+        if ((type(timeout) in [int, float]) or
+            (isinstance(timeout, str) and timeout.replace('.', '', 1).isdigit())) and float(timeout):
             self.timeout = float(timeout)
         else:
             raise Exception("The entered timeout is invalid, it should be a valid none-zero integer.")
