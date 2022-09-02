@@ -1,13 +1,4 @@
-import re
-import os
-import pytz
-import time
-import dateutil.parser
-
-from datetime import timedelta
-from datetime import datetime
-
-from tap_tester import menagerie, connections, runner, LOGGER
+from tap_tester import menagerie, connections, runner
 
 from base import FreshdeskBaseTest
 

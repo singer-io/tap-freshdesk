@@ -224,7 +224,7 @@ class FreshdeskBaseTest(unittest.TestCase):
         total_row_count = sum(sync_record_count.values())
         self.assertGreater(total_row_count, 0,
                            msg="failed to replicate any data: {}".format(sync_record_count))
-        LOGGER.info("total replicated row count: {}".format(total_row_count))
+        LOGGER.info("Total replicated row count: {}".format(total_row_count))
 
         return sync_record_count
 

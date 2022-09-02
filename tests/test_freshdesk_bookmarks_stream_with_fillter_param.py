@@ -1,7 +1,5 @@
 from tap_tester import connections, runner, menagerie
 import dateutil.parser
-from datetime import timedelta
-from datetime import datetime as dt
 
 from base import FreshdeskBaseTest
 

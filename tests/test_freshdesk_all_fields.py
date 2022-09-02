@@ -1,5 +1,3 @@
-import os
-
 from tap_tester import runner, connections, menagerie
 
 from base import FreshdeskBaseTest
