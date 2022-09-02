@@ -77,11 +77,11 @@ class TestExceptionHanfling(unittest.TestCase):
         # Verify that an error message is expected
         self.assertEqual(str(e.exception), expected_message)
 
-    def json_decoder_error(self):
+    def test_json_decoder_error(self):
         """Test for invalid json response, tap does not throw JSON decoder error."""
-        mock_response = get_response(400, {"description": "Client or Validation Error", "code": None})
+        mock_response = get_response(400)
         mock_response._content = "ABC".encode()
-        expected_message = "HTTP-error-code: {}, Error: {}".format(400, "Client or Validation Error")
+        expected_message = "HTTP-error-code: {}, Error: {}".format(400, "The request body/query string is not in the correct format.")
         with self.assertRaises(client.FreshdeskValidationError) as e:
             raise_for_error(mock_response)
 
@@ -99,7 +99,7 @@ class TestBackoffHandling(unittest.TestCase):
         ["For error 500", lambda *x,**y: get_response(500), client.FreshdeskServerError],
         ["For 503 (unknown 5xx error)", lambda *x,**y:get_response(503), client.Server5xxError],   # Unknown 5xx error
         ["For Connection Error", requests.ConnectionError, requests.ConnectionError],
-        ["For timeour Error", requests.Timeout, requests.Timeout],
+        ["For timeout Error", requests.Timeout, requests.Timeout],
     ])
     @mock.patch("requests.Session.send")
     @mock.patch("time.sleep")
