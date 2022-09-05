@@ -151,7 +151,7 @@ class FreshdeskBaseTest(unittest.TestCase):
         rks = self.expected_replication_keys()
 
         return {stream: rks.get(stream, set()) | pks.get(stream, set())
-                for stream in self.expected_streams()}
+                for stream in self.expected_streams(all_streams = True)}
 
     def expected_replication_method(self):
         """
@@ -162,9 +162,13 @@ class FreshdeskBaseTest(unittest.TestCase):
                 for table, properties
                 in self.expected_metadata().items()}
 
-    def expected_streams(self):
+    def expected_streams(self, all_streams: bool = False):
         """A set of expected stream names"""
-        return set(self.expected_metadata().keys())
+        if all_streams:
+            return set(self.expected_metadata().keys())
+        else:
+            # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
+            return set(self.expected_metadata().keys() - {"time_entries", "satisfaction_ratings"})
 
     def expected_replication_keys(self):
         """
@@ -198,7 +202,7 @@ class FreshdeskBaseTest(unittest.TestCase):
 
         found_catalog_names = set(map(lambda c: c['stream_name'], found_catalogs))
         LOGGER.info(found_catalog_names)
-        self.assertSetEqual(self.expected_streams(), found_catalog_names, msg="discovered schemas do not match")
+        self.assertSetEqual(self.expected_streams(all_streams = True), found_catalog_names, msg="discovered schemas do not match")
         LOGGER.info("discovered schemas are OK")
 
         return found_catalogs

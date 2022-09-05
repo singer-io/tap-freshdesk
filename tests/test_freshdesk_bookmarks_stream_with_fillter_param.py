@@ -76,22 +76,22 @@ class BookmarkTest(FreshdeskBaseTest):
 
                 replication_key = next(iter(expected_replication_keys[stream]))
                 if stream == 'tickets':
-                    filter_streams = ['', 'deleted', 'spam']
+                    stream_filters = ['', 'deleted', 'spam']
                 # Skipping "contacts_blocked" filter as there is no data present for it.
                 if stream == 'contacts':
-                    filter_streams = ['', 'deleted']
+                    stream_filters = ['', 'deleted']
                 
                 second_sync_count = second_sync_record_count.get(stream, 0)
                 # Verify at least 1 record was replicated in the second sync
                 self.assertGreater(
                     second_sync_count, 0, msg="We are not fully testing bookmarking for {}".format(stream))
                 
-                for filter in filter_streams:
+                for filter in stream_filters:
                     filter_stream = stream
                     if filter:
                         filter_stream = filter_stream + "_" + filter 
                     
-                        # collect information for assertions from syncs 1 & 2 base on expected values
+                        # Collect information for assertions from syncs 1 & 2 base on expected values
                         first_sync_messages = [record.get('data') for record in
                                             first_sync_records.get(
                                                 stream, {}).get('messages', [])
@@ -101,7 +101,7 @@ class BookmarkTest(FreshdeskBaseTest):
                                                     stream, {}).get('messages', [])
                                                 if record.get('action') == 'upsert' and record.get('data').get(filter) == 'true']
                     else:
-                        # collect information for assertions from syncs 1 & 2 base on expected values
+                        # Collect information for assertions from syncs 1 & 2 base on expected values
                         first_sync_messages = [record.get('data') for record in
                                             first_sync_records.get(
                                                 stream, {}).get('messages', [])

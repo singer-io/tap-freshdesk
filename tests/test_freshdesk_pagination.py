@@ -19,12 +19,11 @@ class PaginationTest(FreshdeskBaseTest):
         """
         
         # For roles stream data present in test account is limited. So, adding configurable page_size "2" 
-        streams_to_test = {"roles"}
-        self.run_test(streams_to_test, 2)
+        streams_to_test_1 = {"roles"}
+        self.run_test(streams_to_test_1, 2)
 
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        streams_to_test = self.expected_streams() - {"time_entries", "satisfaction_ratings"} - {"roles"}
-        self.run_test(streams_to_test, 100)
+        streams_to_test_2 = self.expected_streams() - streams_to_test_1
+        self.run_test(streams_to_test_2, 100)
 
     def run_test(self, streams_to_test ,page_size):
 

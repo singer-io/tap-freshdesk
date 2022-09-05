@@ -17,8 +17,7 @@ class TestFreshdeskAutomaticFields(FreshdeskBaseTest):
         • Verify that all replicated records have unique primary key values.
         """
         
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {"time_entries", "satisfaction_ratings"}
+        expected_streams = self.expected_streams()
         
         # Instantiate connection
         conn_id = connections.ensure_connection(self)

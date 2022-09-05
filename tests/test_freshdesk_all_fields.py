@@ -44,8 +44,7 @@ class TestFreshdeskAllFields(FreshdeskBaseTest):
         • Verify all fields for each stream are replicated
         """
         
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {"time_entries", "satisfaction_ratings"}
+        expected_streams = self.expected_streams()
 
         # Instantiate connection
         conn_id = connections.ensure_connection(self)

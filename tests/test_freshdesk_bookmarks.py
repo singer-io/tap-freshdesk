@@ -25,8 +25,7 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         
         # Tickets and Contacts stream also collect some deleted data on the basis of filter param.
         # Written separate bookmark test case for them in test_freshdesk_bookmarks_stream_with_fillter_param.py
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {'tickets', 'contacts'} - {"satisfaction_ratings", "time_entries"}
+        expected_streams = self.expected_streams() - {'tickets', 'contacts'}
 
         expected_replication_keys = self.expected_replication_keys()
         expected_replication_methods = self.expected_replication_method()

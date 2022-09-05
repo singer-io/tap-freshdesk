@@ -22,7 +22,7 @@ class TestFreshdeskDiscovery(FreshdeskBaseTest):
         • Verify that primary keys are given the inclusion of automatic.
         • Verify that all other fields have inclusion of available metadata.
         """
-        streams_to_test = self.expected_streams()
+        streams_to_test = self.expected_streams(all_streams = True)
 
         conn_id = connections.ensure_connection(self)
 
