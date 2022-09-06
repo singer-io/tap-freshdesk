@@ -88,6 +88,9 @@ class Stream:
         """
         return base_url +  '/api/v2/'+ self.path.format(*args)
 
+    def add_fields_at_1st_level(self, record):
+        pass
+
     def write_records(self, catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, child_max_bookmarks, predefined_filter=None):
         """
         Transform the chunk of records according to the schema and write the records based on the bookmark.
@@ -109,6 +112,7 @@ class Stream:
                 extraction_time = singer.utils.now()
                 stream_metadata = singer.metadata.to_map(stream_catalog['metadata'])
                 for row in data:
+                    self.add_fields_at_1st_level(row)
                     if self.tap_stream_id in selected_streams and row[self.replication_keys[0]] >= bookmark:
                         # Custom fields are expected to be strings, but sometimes the API sends
                         # booleans. We cast those to strings to match the schema.
@@ -284,6 +288,13 @@ class Conversations(ChildStream):
     tap_stream_id = 'conversations'
     path = 'tickets/{}/conversations'
     parent = 'tickets'
+
+    def add_fields_at_1st_level(self, record):
+        """
+        Overwrite updated__at value.
+        """
+        if record.get("last_edited_at"):
+            record["updated_at"] = max(record["updated_at"], record["last_edited_at"])
 
 
 class SatisfactionRatings(ChildStream):
