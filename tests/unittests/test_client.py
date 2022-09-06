@@ -33,21 +33,3 @@ class TestAccessToken(unittest.TestCase):
         # Verify that for check access token, `request` method was called
         self.assertTrue(mock_request.called)
         mock_request.assert_called_with("https://sampleDomain.freshdesk.com/api/v2/roles", mock.ANY)
-
-
-class TestRateLimit(unittest.TestCase):
-    """Test `ratelimit` decorator."""
-
-    @mock.patch("requests.Session.send", return_value = get_response(200))
-    @mock.patch("time.sleep")
-    def test_ratelimit(self, mock_sleep, mock_request):
-        """
-        Test that for consecutive request calls `time.sleep` is called,
-        if requests calls are made in a very short time(2 seconds).
-        """
-        _client = client.FreshdeskClient({"api_key": "API_KEY"})
-        for _ in range(10):
-            _client.request("https://SAMPLE.URL")
-
-        # Verify that `time.sleep` was called
-        self.assertTrue(mock_sleep.called)

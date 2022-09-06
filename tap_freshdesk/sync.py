@@ -54,11 +54,14 @@ def get_ordered_stream_list(currently_syncing, streams_to_sync):
 
 def get_stream_to_sync(selected_streams):
     """
-    Get the streams for which the sync function should be called(the parent in case of selected child streams).
+    Get the streams for which the sync function should be called
+    (the parent in case of selected child streams).
     """
     streams_to_sync = []
     for stream_name, stream_obj in STREAMS.items():
-        if (stream_name in selected_streams) or any(child in selected_streams for child in stream_obj.children):
+        if ((stream_name in selected_streams) or
+            any(child in selected_streams for child in stream_obj.children)) and (
+            stream_obj.parent is None):
             streams_to_sync.append(stream_name)
     return streams_to_sync
 
@@ -76,7 +79,7 @@ def sync(client, config, state, catalog):
     singer.write_state(state)
     currently_syncing = singer.get_currently_syncing(state)
     streams_to_sync = get_ordered_stream_list(currently_syncing, streams_to_sync)
-    for stream in filter(lambda x: STREAMS[x]().parent is None, streams_to_sync):
+    for stream in streams_to_sync:
         stream_obj = STREAMS[stream]()
 
         write_schemas(stream, catalog, selected_streams)

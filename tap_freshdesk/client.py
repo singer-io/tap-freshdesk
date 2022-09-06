@@ -1,37 +1,13 @@
 import time
-import collections
-import functools
 import backoff
 import requests
 import singer
+from singer import utils
 
 
 LOGGER = singer.get_logger()
 BASE_URL = "https://{}.freshdesk.com"
 
-
-def ratelimit(limit, every):
-    """
-    Keeps minimum seconds(every) of time between two request calls.
-    """
-    def limitdecorator(fn):
-        times = collections.deque()
-
-        @functools.wraps(fn)
-        def wrapper(*args, **kwargs):
-            if len(times) >= limit:
-                t0 = times.pop()    # Takes last call time
-                t = time.time()     # current time
-                sleep_time = every - (t - t0)   # If difference is < every(time)
-                if sleep_time > 0:              # Sleep for remaining time
-                    time.sleep(sleep_time)
-
-            times.appendleft(time.time())   # Appending current time to list
-            return fn(*args, **kwargs)
-
-        return wrapper
-
-    return limitdecorator
 
 class FreshdeskClient:
     """
@@ -62,7 +38,7 @@ class FreshdeskClient:
                           max_tries=5,
                           giveup=lambda e: e.response is not None and 400 <= e.response.status_code < 500,
                           factor=2)
-    @ratelimit(1, 2)
+    @utils.ratelimit(1, 2)
     def request(self, url, params=None):
         """
         Call rest API and return the response in case of status code 200.

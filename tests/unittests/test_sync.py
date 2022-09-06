@@ -101,13 +101,13 @@ class TestGetStreamsToSync(unittest.TestCase):
 
     @parameterized.expand([
         ['test_parent_selected', ["tickets"], ["tickets"]],
-        ['test_child_selected', ["conversations", "satisfaction_ratings"], ["conversations", "satisfaction_ratings", "tickets"]],
-        ['test_both_selected', ["conversations", "roles", "tickets"], ["conversations", "roles", "tickets"]]
+        ['test_child_selected', ["conversations", "satisfaction_ratings"], ["tickets"]],
+        ['test_both_selected', ["conversations", "roles", "tickets"], ["roles", "tickets"]]
     ])
     def test_sync_streams(self, name, selected_streams, expected_streams):
         """
         Test that if an only child is selected in the catalog,
-        then `get_stream_to_sync` returns the parent stream also.
+        then `get_stream_to_sync` returns the parent streams if selected stream is child.
         """
         sync_streams = get_stream_to_sync(selected_streams)
 
