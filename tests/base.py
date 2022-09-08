@@ -163,8 +163,9 @@ class FreshdeskBaseTest(unittest.TestCase):
                 in self.expected_metadata().items()}
 
     def expected_streams(self, all_streams: bool = False):
-        """A set of expected stream names"""
+        """A set of expected stream names based on all_streams param"""
         if all_streams:
+            # Returns all streams.
             return set(self.expected_metadata().keys())
         else:
             # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.

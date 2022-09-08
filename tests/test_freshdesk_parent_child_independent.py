@@ -16,8 +16,8 @@ class ParentChildIndependentTest(FreshdeskBaseTest):
             • Verify that if only child streams are selected then only child streams are replicated.
         """
 
-        # Test for the case of child is selected and parent is not selected
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
+        # To collect "time_entries", "satisfaction_ratings"(child streams of "tickets") pro account is needed. 
+        # Skipping them for now.
         child_streams = {'conversations'}
         
         # Instantiate connection

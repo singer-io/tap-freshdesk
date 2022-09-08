@@ -33,7 +33,6 @@ class PaginationTest(FreshdeskBaseTest):
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
 
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
         expected_streams = streams_to_test
         
         found_catalogs = self.run_and_verify_check_mode(conn_id)
