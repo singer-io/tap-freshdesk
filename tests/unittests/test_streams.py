@@ -3,8 +3,6 @@ from unittest import mock
 from parameterized import parameterized
 from tap_freshdesk.streams import Agents, Tickets, get_min_bookmark
 
-START_DATE = '2022-09-00T00:00:00.000000Z'
-
 class TestSyncObj(unittest.TestCase):
     """
     Test `sync_obj` mehtod of stream.
@@ -146,33 +144,3 @@ class TestSyncTransformDict(unittest.TestCase):
 
         # Verify returned list is expected
         self.assertEqual(returned_list, expected_list)
-
-class TestStreamsUtils(unittest.TestCase):
-    """
-    Test utility functions of streams module.
-    """
-    
-    @parameterized.expand([
-        ['test_parent_only_with_state', ['tickets'], {'bookmarks': {'tickets': {'updated_at': '2022-08-30T00:00:00.000000Z'}}}, '2022-08-30T00:00:00.000000Z'],
-        ['test_child_only_with_state', ['conversations'], {'bookmarks': {'conversations': {'updated_at': '2022-08-30T00:00:00.000000Z'}}}, '2022-08-30T00:00:00.000000Z'],
-        ['test_parent_only_without_state', ['tickets'], {}, START_DATE],
-        ['test_child_only_without_state', ['tickets'], {}, START_DATE],
-        ['test_min_parent_bookmark_single_child', ['tickets', 'conversations'],
-         {'bookmarks': {'tickets': {'updated_at': '2022-07-30T00:00:00.000000Z'}, 'conversations': {'updated_at': '2022-08-30T00:00:00.000000Z'}}}, '2022-07-30T00:00:00.000000Z'],
-        ['test_min_child_bookmark_single_child', ['tickets', 'conversations'],
-        {'bookmarks': {'tickets': {'updated_at': '2022-08-30T00:00:00.000000Z'}, 'conversations': {'updated_at': '2022-07-30T00:00:00.000000Z'}}}, '2022-07-30T00:00:00.000000Z'],
-        ['test_min_child_bookmark_multiple_child', ['tickets', 'conversations', 'time_entries'],
-        {'bookmarks': {'tickets': {'updated_at': '2022-09-30T00:00:00.000000Z'}, 'conversations': {'updated_at': '2022-09-30T00:00:00.000000Z'}}}, START_DATE],
-        ['test_multiple_child_only_bookmark', ['tickets', 'conversations', 'time_entries'],
-        {'bookmarks': {'time_entries': {'updated_at': '2022-09-30T00:00:00.000000Z'}, 'conversations': {'updated_at': '2022-09-30T00:00:00.000000Z'}}}, START_DATE],
-        ['test_multiple_child_bookmark', ['tickets', 'conversations', 'time_entries'],
-        {'bookmarks': {'time_entries': {'updated_at': '2022-06-30T00:00:00.000000Z'}, 'tickets': {'updated_at': '2022-08-30T00:00:00.000000Z'}, 'conversations': {'updated_at': '2022-11-30T00:00:00.000000Z'}}}, '2022-06-30T00:00:00.000000Z']
-
-    ])
-    def test_get_min_bookmark(self, name, selected_streams, state, expected_bookmark):
-        """
-        Test that `get_min_bookmark` function return minimum bookmark value among the parent and child streams.
-        """
-        current_time = '2022-09-30T00:00:00.000000Z'
-        actual_bookmark = get_min_bookmark('tickets', selected_streams, current_time, START_DATE, state, 'updated_at')
-        self.assertEqual(actual_bookmark, expected_bookmark)
