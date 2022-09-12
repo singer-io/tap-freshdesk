@@ -9,22 +9,22 @@ PAGE_SIZE = 100
 DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
 
-def get_min_bookmark(stream, streams_to_sync, start_date, state, bookmark_key, predefined_filter=None):
+def get_min_bookmark(stream, selected_streams, bookmark, start_date, state, bookmark_key, predefined_filter=None):
     """
     Get the minimum bookmark from the parent and its corresponding child bookmarks.
     """
 
     stream_obj = STREAMS[stream]()
-    min_bookmark =  dt.strftime(dt.now(), DATETIME_FMT)
-    if stream in streams_to_sync:
+    min_bookmark = bookmark
+    if stream in selected_streams:
         # Get minimum of stream's bookmark(start date in case of no bookmark) and min_bookmark
         if predefined_filter:
             stream = stream + '_' + predefined_filter
         min_bookmark = min(min_bookmark, get_bookmark(state, stream, bookmark_key, start_date))
 
     # Iterate through all children and return minimum bookmark among all.
-    for child in filter(lambda x: x in streams_to_sync, stream_obj.children):
-        min_bookmark = min(min_bookmark, get_min_bookmark(child, streams_to_sync, start_date, state, bookmark_key))
+    for child in stream_obj.children:
+        min_bookmark = min(min_bookmark, get_min_bookmark(child, selected_streams, bookmark, start_date, state, bookmark_key))
 
     return min_bookmark
 
@@ -143,8 +143,9 @@ class Stream:
             LOGGER.info("Syncing %s with filter %s", self.tap_stream_id, predefined_filter)
             params[self.filter_keyword] = predefined_filter
 
+        current_time = dt.strftime(dt.now(), DATETIME_FMT)
         # Get the minimum bookmark from the parent and the child streams
-        min_bookmark = get_min_bookmark(self.tap_stream_id, streams_to_sync, start_date, state, self.replication_keys[0], predefined_filter)
+        min_bookmark = get_min_bookmark(self.tap_stream_id, selected_streams, current_time, start_date, state, self.replication_keys[0], predefined_filter)
         max_bookmark = min_bookmark
         # Initialize the child_max_bookmarks dictionary
         child_max_bookmarks = {}
@@ -260,8 +261,10 @@ class ChildStream(Stream):
         params = copy.deepcopy(self.params)
         # Build the url for the request
         full_url = self.build_url(client.base_url, self.parent_id)
+
+        current_time = dt.strftime(dt.now(), DATETIME_FMT)
         # Get the min bookmark from the parent and the child streams
-        min_bookmark = get_min_bookmark(self.tap_stream_id, streams_to_sync, start_date, state, self.replication_keys[0], None)
+        min_bookmark = get_min_bookmark(self.tap_stream_id, selected_streams, current_time, start_date, state, self.replication_keys[0], None)
         max_bookmark = min_bookmark
         params['page'] = 1
         self.paginate = True
