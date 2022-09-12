@@ -22,7 +22,7 @@ class PaginationTest(FreshdeskBaseTest):
         streams_to_test_1 = {"roles"}
         self.run_test(streams_to_test_1, 2)
 
-        streams_to_test_2 = self.expected_streams() - streams_to_test_1
+        streams_to_test_2 = self.expected_streams(only_trial_account_streams = True) - streams_to_test_1
         self.run_test(streams_to_test_2, 100)
 
     def run_test(self, streams_to_test ,page_size):

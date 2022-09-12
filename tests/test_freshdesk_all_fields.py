@@ -44,7 +44,7 @@ class TestFreshdeskAllFields(FreshdeskBaseTest):
         • Verify all fields for each stream are replicated
         """
         
-        expected_streams = self.expected_streams()
+        expected_streams = self.expected_streams(only_trial_account_streams = True)
 
         # Instantiate connection
         conn_id = connections.ensure_connection(self)

@@ -17,7 +17,7 @@ class TestFreshdeskAutomaticFields(FreshdeskBaseTest):
         • Verify that all replicated records have unique primary key values.
         """
         
-        expected_streams = self.expected_streams()
+        expected_streams = self.expected_streams(only_trial_account_streams = True)
         
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
