@@ -1,8 +1,7 @@
 import unittest
 from unittest import mock
 from parameterized import parameterized
-from tap_freshdesk.streams import Agents, Tickets
-
+from tap_freshdesk.streams import Agents, Tickets, get_min_bookmark
 
 class TestSyncObj(unittest.TestCase):
     """
