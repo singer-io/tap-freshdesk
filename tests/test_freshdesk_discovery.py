@@ -1,4 +1,3 @@
-"""Test tap discovery mode and metadata."""
 import re
 
 from tap_tester import menagerie, connections

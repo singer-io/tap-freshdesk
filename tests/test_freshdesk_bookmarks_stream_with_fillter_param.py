@@ -1,5 +1,4 @@
 from tap_tester import connections, runner, menagerie
-import dateutil.parser
 
 from base import FreshdeskBaseTest
 
@@ -9,7 +8,7 @@ class BookmarkTest(FreshdeskBaseTest):
     and respects it for the next sync"""
     
     def name(self):
-        return "tap_tester_freshdesk_bookmark_test"
+        return "tap_tester_freshdesk_bookmarks_stream_with_filter_param"
 
     def test_run(self):
         """

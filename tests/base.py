@@ -224,7 +224,7 @@ class FreshdeskBaseTest(unittest.TestCase):
         # Verify actual rows were synced
         sync_record_count = runner.examine_target_output_file(self,
                                                               conn_id,
-                                                              self.expected_streams(),
+                                                              self.expected_streams(only_trial_account_streams=True),
                                                               self.expected_primary_keys())
         total_row_count = sum(sync_record_count.values())
         self.assertGreater(total_row_count, 0,

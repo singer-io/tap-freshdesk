@@ -4,7 +4,7 @@ from base import FreshdeskBaseTest
 
 class ParentChildIndependentTest(FreshdeskBaseTest):
     """
-        Test case to verify that tap is working fine if only first-level child streams are selected
+    Test case to verify that tap is working fine if only first-level child streams are selected
     """  
   
     def name(self):
