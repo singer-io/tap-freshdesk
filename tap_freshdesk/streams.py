@@ -5,7 +5,7 @@ from singer.bookmarks import get_bookmark
 
 
 LOGGER = singer.get_logger()
-PAGE_SIZE = 100
+DEFAULT_PAGE_SIZE = 100
 DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
 
@@ -59,7 +59,7 @@ class Stream:
     children = []
     path = ''
     headers = {}
-    params = {"per_page": PAGE_SIZE, "page": 1}
+    params = {"per_page": DEFAULT_PAGE_SIZE, "page": 1}
     paginate = True
     parent = None
     id_key = None
@@ -92,13 +92,11 @@ class Stream:
         """
         Transform the chunk of records according to the schema and write the records based on the bookmark.
         """
-        params = copy.deepcopy(self.params)
         stream_catalog = get_schema(catalog, self.tap_stream_id)
         stream_id = self.tap_stream_id
 
         # Append the predefined filter in case it's present
         if predefined_filter:
-            params[self.filter_keyword] = predefined_filter
             stream_id = stream_id + '_' + predefined_filter
         bookmark = get_bookmark(state, stream_id, self.replication_keys[0], start_date)
         # The max bookmark so far for the child stream
@@ -135,7 +133,7 @@ class Stream:
         """
         The base stream class sync_obj() function to fetch records.
         """
-        params = copy.deepcopy(self.params)
+        params = {**self.params, "per_page": client.page_size}
         full_url = self.build_url(client.base_url, self.parent_id)
 
         # Update the filter keyword in the params for date-filtered streams
@@ -160,7 +158,7 @@ class Stream:
         # Paginate through the request
         while self.paginate:
             data = client.request(full_url, params)
-            self.paginate = len(data) >= PAGE_SIZE
+            self.paginate = len(data) >= client.page_size
             params['page'] += 1
             max_bookmark, child_max_bookmarks = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, child_max_bookmarks, predefined_filter)
         write_bookmark(self.tap_stream_id, selected_streams, max_bookmark, state, predefined_filter)
@@ -232,7 +230,7 @@ class Tickets(DateFilteredStream):
     id_key = 'id'
     date_filter = 'updated_since'
     params = {
-        "per_page": PAGE_SIZE,
+        "per_page": DEFAULT_PAGE_SIZE,
         'order_by': "updated_at",
         'order_type': "asc",
         'include': "requester,company,stats"
@@ -258,7 +256,7 @@ class ChildStream(Stream):
         """
         The child stream sync_obj() method to sync the child records
         """
-        params = copy.deepcopy(self.params)
+        params = {**self.params, "per_page": client.page_size}
         # Build the url for the request
         full_url = self.build_url(client.base_url, self.parent_id)
 
@@ -273,7 +271,7 @@ class ChildStream(Stream):
         # Paginate through the records
         while self.paginate:
             data = client.request(full_url, params)
-            self.paginate = len(data) >= PAGE_SIZE
+            self.paginate = len(data) >= client.page_size
             params['page'] += 1
             # Write the records based on the bookmark and return the max_bookmark for the page
             bookmark, _ = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, None)

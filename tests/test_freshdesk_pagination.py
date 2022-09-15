@@ -13,15 +13,26 @@ class PaginationTest(FreshdeskBaseTest):
         print("Pagination Test for tap-freshdesk")
 
     def test_run(self):
+        """
+        Test streams with different page_size as per available records.
+        """
+        # Not able to generate more data as roles stream requires pro account.
+        # So, updating page_sie according to data available.
+        test_streams = {'roles'}
+        self.run_pagination(test_streams, page_size = 2)
 
-        # Page size for pagination supported streams
-        page_size = 100
+        # Setting page_size back to 100 for the rest of the streams.
+        self.run_pagination(self.expected_streams() - test_streams, page_size = 100)
+
+    def run_pagination(self, expected_streams, page_size):
+        # Page size for pagination-supported streams
+        self.PAGE_SIZE = page_size
 
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
 
         # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {"time_entries", "satisfaction_ratings"}
+        expected_streams = expected_streams - {"time_entries", "satisfaction_ratings"}
         
         found_catalogs = self.run_and_verify_check_mode(conn_id)
 
@@ -41,12 +52,7 @@ class PaginationTest(FreshdeskBaseTest):
         # Test by stream
         for stream in expected_streams:
             with self.subTest(stream=stream):
-                # Not able to generate more data as roles stream requires pro account.
-                # So, updating page_sie according to data available.
-                if stream == "roles":
-                    page_size = 2
-                else:
-                    page_size = 100
+
                 # Expected values
                 expected_primary_keys = self.expected_primary_keys()[stream]
                 
