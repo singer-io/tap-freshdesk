@@ -30,6 +30,7 @@ KNOWN_MISSING_FIELDS = {
     }
 }
 
+
 class TestFreshdeskAllFields(FreshdeskBaseTest):
     """Test that with all fields selected for a stream automatic and available fields are replicated"""
 
@@ -43,8 +44,8 @@ class TestFreshdeskAllFields(FreshdeskBaseTest):
         • Verify that more than just the automatic fields are replicated for each stream. 
         • Verify all fields for each stream are replicated
         """
-        
-        expected_streams = self.expected_streams(only_trial_account_streams = True)
+
+        expected_streams = self.expected_streams(only_trial_account_streams=True)
 
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
@@ -60,7 +61,8 @@ class TestFreshdeskAllFields(FreshdeskBaseTest):
         )
 
         # Grab metadata after performing table-and-field selection to set expectations
-        stream_to_all_catalog_fields = dict() # used for asserting all fields are replicated
+        # used for asserting all fields are replicated
+        stream_to_all_catalog_fields = dict()
         for catalog in test_catalogs_all_fields:
             stream_id, stream_name = catalog['stream_id'], catalog['stream_name']
             catalog_entry = menagerie.get_annotated_schema(conn_id, stream_id)
@@ -91,10 +93,11 @@ class TestFreshdeskAllFields(FreshdeskBaseTest):
                 for message in messages['messages']:
                     if message['action'] == 'upsert':
                         actual_all_keys.update(message['data'].keys())
-                    
+
                 expected_all_keys = expected_all_keys - KNOWN_MISSING_FIELDS.get(stream, set())
 
                 # Verify all fields for a stream were replicated
-                self.assertGreater(len(expected_all_keys), len(expected_automatic_fields))
-                self.assertTrue(expected_automatic_fields.issubset(expected_all_keys), msg=f'{expected_automatic_fields-expected_all_keys} is not in "expected_all_keys"')
+                self.assertGreater(len(expected_all_keys),len(expected_automatic_fields))
+                self.assertTrue(expected_automatic_fields.issubset(expected_all_keys), 
+                                msg=f'{expected_automatic_fields - expected_all_keys} is not in "expected_all_keys"')
                 self.assertSetEqual(expected_all_keys, actual_all_keys)
