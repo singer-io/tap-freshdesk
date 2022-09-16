@@ -1,9 +1,6 @@
-import os
-import requests
-from tap_tester import connections, runner
+from tap_tester import connections, runner, LOGGER
 
 from base import FreshdeskBaseTest
-from datetime import datetime, timedelta
 
 
 class FreshdeskStartDateTest(FreshdeskBaseTest):
@@ -35,15 +32,14 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         start_date_1_epoch = self.dt_to_ts(self.start_date_1, self.START_DATE_FORMAT)
         start_date_2_epoch = self.dt_to_ts(self.start_date_2, self.START_DATE_FORMAT)
 
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {'satisfaction_ratings', 'time_entries'}
+        expected_streams = self.expected_streams(only_trial_account_streams = True)
 
         ##########################################################################
         ### First Sync
         ##########################################################################
 
         # Instantiate connection
-        conn_id_1 = connections.ensure_connection(self, original_properties=False)
+        conn_id_1 = connections.ensure_connection(self)
 
         # Run check mode
         found_catalogs_1 = self.run_and_verify_check_mode(conn_id_1)
@@ -61,7 +57,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         ### Update START DATE Between Syncs
         ##########################################################################
 
-        print("REPLICATION START DATE CHANGE: {} ===>>> {} ".format(self.start_date, self.start_date_2))
+        LOGGER.info("REPLICATION START DATE CHANGE: {} ===>>> {} ".format(self.start_date, self.start_date_2))
         self.start_date = self.start_date_2
 
         ##########################################################################
@@ -150,7 +146,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
                 # Currently all streams obey start date.  Leaving this in incase one of the two remaining
                 # streams are implemented in the future and do not obey start date
                 # else:
-                    
+                #     print("Stream {} does NOT obey start_date".format(stream))                  
                 #     # Verify that the 2nd sync with a later start date replicates the same number of
                 #     # records as the 1st sync.
                 #     self.assertEqual(record_count_sync_2, record_count_sync_1)

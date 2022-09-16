@@ -1,13 +1,4 @@
-import re
-import os
-import pytz
-import time
-import dateutil.parser
-
-from datetime import timedelta
-from datetime import datetime
-
-from tap_tester import menagerie, connections, runner, LOGGER
+from tap_tester import menagerie, connections, runner
 
 from base import FreshdeskBaseTest
 
@@ -26,17 +17,15 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         • Verify that a second sync respects the bookmark
             All data of the second sync is >= the bookmark from the first sync
             The number of records in the 2nd sync is less then the first
-        • Verify that for full table stream, all data replicated in sync 1 is replicated again in sync 2.
         
         PREREQUISITE
         For EACH stream that is incrementally replicated there are multiple rows of data with
             different values for the replication key
         """
         
-        # Tickets and Contacts stream also collectes some deleted data on the basis of filter param.
-        # Written seprate bookmark test case for them in test_freshdesk_bookmarks_stream_with_fillter_param.py
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {'tickets', 'contacts'} - {"satisfaction_ratings", "time_entries"}
+        # Tickets and Contacts stream also collect some deleted data on the basis of filter param.
+        # Written separate bookmark test case for them in test_freshdesk_bookmarks_stream_with_fillter_param.py
+        expected_streams = self.expected_streams(only_trial_account_streams = True) - {'tickets', 'contacts'}
 
         expected_replication_keys = self.expected_replication_keys()
         expected_replication_methods = self.expected_replication_method()

@@ -17,8 +17,7 @@ class TestFreshdeskAutomaticFields(FreshdeskBaseTest):
         • Verify that all replicated records have unique primary key values.
         """
         
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {"time_entries", "satisfaction_ratings"}
+        expected_streams = self.expected_streams(only_trial_account_streams = True)
         
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
@@ -68,4 +67,3 @@ class TestFreshdeskAutomaticFields(FreshdeskBaseTest):
                     len(primary_keys_list),
                     len(unique_primary_keys_list),
                     msg="Replicated record does not have unique primary key values.")
-                    from tap_tester import runner, connections
