@@ -52,7 +52,6 @@ class FreshdeskBaseTest(unittest.TestCase):
         """
         return_value = {
             'start_date': '2019-01-04T00:00:00Z',
-            'page_size': self.PAGE_SIZE
         }
         if original:
             return return_value

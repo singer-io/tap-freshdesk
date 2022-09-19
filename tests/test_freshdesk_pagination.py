@@ -11,7 +11,13 @@ class PaginationTest(FreshdeskBaseTest):
 
     def test_name(self):
         LOGGER.info("Pagination Test for tap-freshdesk")
-
+    
+    def get_properties(self, *args, **kwargs):
+        """Override properties by passing page_size param."""
+        props = super().get_properties(*args, **kwargs)
+        props['page_size'] = self.PAGE_SIZE
+        return props
+    
     def test_run(self):
         """
         • Verify that for each stream you can get multiple pages of data.  
