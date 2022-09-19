@@ -105,7 +105,8 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
                     # Verify that the minimum bookmark is used for selected parent-child stream.
                     replication_key_value = self.dt_to_ts(
                         record.get(replication_key), self.BOOKMARK_FORMAT)
-
+                    
+                    # Verify that the records replicated for the selected streams are >= given bookmark.
                     self.assertGreaterEqual(
                         replication_key_value, sync_start_date_ts,
                         msg="Sync records do not respect the provided bookmark."
@@ -115,8 +116,8 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
                 self.assertGreater(sync_record_count.get(stream, 0), 0)
 
                 if stream in stream_to_test:
-                    maximum_bookmark_value_ts = self.dt_to_ts(minimum_bookmark, self.BOOKMARK_FORMAT)
                     minimum_bookmark_value_ts = self.dt_to_ts(minimum_bookmark, self.BOOKMARK_FORMAT)
+                    maximum_bookmark_value_ts = self.dt_to_ts(maximum_bookmark, self.BOOKMARK_FORMAT)
                     records_between_dates = []
                     for record in sync_messages:
                         replication_key_value = self.dt_to_ts(record.get(replication_key), self.BOOKMARK_FORMAT)
@@ -124,5 +125,5 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
                         if minimum_bookmark_value_ts <= replication_key_value <= maximum_bookmark_value_ts:
                             records_between_dates.append(record)
 
-                    # Verify that records between the bookmark values are replicated.
+                    # Verify that records between the bookmark values are replicated for streams in streams to test.
                     self.assertIsNotNone(records_between_dates)
