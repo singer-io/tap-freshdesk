@@ -104,10 +104,10 @@ class BookmarkTest(FreshdeskBaseTest):
                         # Collect information for assertions from syncs 1 & 2 base on expected values
                         first_sync_messages = [record.get('data') for record in
                                                first_sync_records.get(stream, {}).get('messages', [])
-                                               if record.get('action') and not record.get('data').get('deleted')]
+                                               if record.get('action') == 'upsert' and not any(record.get('data').get(_filter) for _filter in stream_filters)]
                         second_sync_messages = [record.get('data') for record in
                                                 second_sync_records.get(stream, {}).get('messages', [])
-                                                if record.get('action') == 'upsert' and not record.get('data').get('deleted')]
+                                                if record.get('action') == 'upsert' and not any(record.get('data').get(_filter) for _filter in stream_filters)]
 
                     # Get bookmark for tickets/contacts stream
                     first_bookmark_value = first_sync_bookmarks.get('bookmarks', {}).get(filter_stream, {}).get(replication_key)
