@@ -17,10 +17,10 @@ class TestFreshdeskDiscovery(FreshdeskBaseTest):
         • Verify the stream names discovered were what we expect
         • Verify stream names follow naming convention
           streams should only have lowercase alphas and underscores
-        • verify there is only 1 top level breadcrumb
-        • verify primary key(s)
-        • verify that primary keys are given the inclusion of automatic.
-        • verify that all other fields have inclusion of available metadata.
+        • Verify there is only 1 top level breadcrumb
+        • Verify primary key(s)
+        • Verify that primary keys are given the inclusion of automatic.
+        • Verify that all other fields have inclusion of available metadata.
         """
         streams_to_test = self.expected_streams()
 

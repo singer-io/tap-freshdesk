@@ -1,10 +1,8 @@
-import os
-
 from tap_tester import runner, connections, menagerie
 
 from base import FreshdeskBaseTest
 
-# As we are not able to generate following fields by Freshdesk UI, so removed it form expectation list.
+# As we are not able to generate following fields by Freshdesk UI, so removed it from expectation list.
 KNOWN_MISSING_FIELDS = {
     'tickets': {
         'facebook_id',
@@ -13,7 +11,6 @@ KNOWN_MISSING_FIELDS = {
         'twitter_id',
         'name',
         'phone',
-        'deleted',
         'email'
     },
     'groups': {
@@ -23,11 +20,18 @@ KNOWN_MISSING_FIELDS = {
     'agents': {
         'group_ids',
         'role_ids'
+    },
+    'contacts': {
+        'view_all_tickets',
+        'other_companies',
+        'other_emails',
+        'tags',
+        'avatar'
     }
 }
 
 class TestFreshdeskAllFields(FreshdeskBaseTest):
-    """Test that with all fields selected for a stream automatic and available fields are  replicated"""
+    """Test that with all fields selected for a stream automatic and available fields are replicated"""
 
     @staticmethod
     def name():
@@ -40,9 +44,8 @@ class TestFreshdeskAllFields(FreshdeskBaseTest):
         • Verify all fields for each stream are replicated
         """
         
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {"time_entries", "satisfaction_ratings"}
-        
+        expected_streams = self.expected_streams(only_trial_account_streams = True)
+
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
 

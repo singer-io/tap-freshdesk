@@ -1,8 +1,7 @@
 import unittest
 from unittest import mock
 from parameterized import parameterized
-from tap_freshdesk.streams import Agents, Tickets
-
+from tap_freshdesk.streams import Agents, Tickets, get_min_bookmark
 
 class TestSyncObj(unittest.TestCase):
     """
@@ -64,6 +63,7 @@ class TestSyncObj(unittest.TestCase):
         state = {}
         client = mock.Mock()
         client.base_url = ""
+        client.page_size = 100
         client.request.side_effect = responses
         catalog = [
             {"schema":{}, "tap_stream_id": "tickets", "metadata": []},
@@ -98,6 +98,7 @@ class TestSyncObj(unittest.TestCase):
         stream = Tickets()
         client = mock.Mock()
         client.base_url = ""
+        client.page_size = 100
         client.request.side_effect = [
             [{"id": i, "updated_at": f"2020-03-{i}T00:00:00Z"} for i in [11,15,12]],    # Tickets Response
             [{"id": 10+i, "updated_at": f"2020-03-{i}T00:00:00Z"} for i in [13,24]],    # conversations Response

@@ -6,7 +6,7 @@ from datetime import datetime as dt
 from datetime import timedelta
 import time
 
-from tap_tester import menagerie, runner, connections
+from tap_tester import menagerie, runner, connections, LOGGER
 
 class FreshdeskBaseTest(unittest.TestCase):
 
@@ -18,11 +18,13 @@ class FreshdeskBaseTest(unittest.TestCase):
     FULL = "FULL_TABLE"
 
     start_date = ""
+    PAGE_SIZE = 100
     START_DATE_FORMAT = "%Y-%m-%dT00:00:00Z" # %H:%M:%SZ
     BOOKMARK_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
-
+    RECORD_REPLICATION_KEY_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
     OBEYS_START_DATE = "obey-start-date"
-    
+    PAGE_SIZE = 100
+
     #######################################
     #  Tap Configurable Metadata Methods  #
     #######################################
@@ -49,7 +51,8 @@ class FreshdeskBaseTest(unittest.TestCase):
         :param original: set to false to change the start_date or end_date
         """
         return_value = {
-            'start_date' : '2019-01-04T00:00:00Z'
+            'start_date' : '2019-01-04T00:00:00Z',
+            'page_size': self.PAGE_SIZE
         }
         if original:
             return return_value
@@ -166,9 +169,14 @@ class FreshdeskBaseTest(unittest.TestCase):
                 for table, properties
                 in self.expected_metadata().items()}
 
-    def expected_streams(self):
-        """A set of expected stream names"""
-        return set(self.expected_metadata().keys())
+    def expected_streams(self, only_trial_account_streams: bool = False):
+        """A set of expected stream names based on only_trial_account_streams param"""
+        if only_trial_account_streams:
+            # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
+            return set(self.expected_metadata().keys() - {"time_entries", "satisfaction_ratings"})
+        else:
+            # Returns all streams.
+            return set(self.expected_metadata().keys())
 
     def expected_replication_keys(self):
         """
@@ -201,9 +209,9 @@ class FreshdeskBaseTest(unittest.TestCase):
         self.assertGreater(len(found_catalogs), 0, msg="unable to locate schemas for connection {}".format(conn_id))
 
         found_catalog_names = set(map(lambda c: c['stream_name'], found_catalogs))
-        print(found_catalog_names)
+        LOGGER.info(found_catalog_names)
         self.assertSetEqual(self.expected_streams(), found_catalog_names, msg="discovered schemas do not match")
-        print("discovered schemas are OK")
+        LOGGER.info("discovered schemas are OK")
 
         return found_catalogs
 
@@ -228,7 +236,7 @@ class FreshdeskBaseTest(unittest.TestCase):
         total_row_count = sum(sync_record_count.values())
         self.assertGreater(total_row_count, 0,
                            msg="failed to replicate any data: {}".format(sync_record_count))
-        print("total replicated row count: {}".format(total_row_count))
+        LOGGER.info("Total replicated row count: {}".format(total_row_count))
 
         return sync_record_count
 
@@ -257,7 +265,7 @@ class FreshdeskBaseTest(unittest.TestCase):
 
             # Verify all testable streams are selected
             selected = catalog_entry.get('annotated-schema').get('selected')
-            print("Validating selection on {}: {}".format(cat['stream_name'], selected))
+            LOGGER.info("Validating selection on {}: {}".format(cat['stream_name'], selected))
             if cat['stream_name'] not in expected_selected:
                 self.assertFalse(selected, msg="Stream selected, but not testable.")
                 continue # Skip remaining assertions if we aren't selecting this stream
@@ -267,7 +275,7 @@ class FreshdeskBaseTest(unittest.TestCase):
                 # Verify all fields within each selected stream are selected
                 for field, field_props in catalog_entry.get('annotated-schema').get('properties').items():
                     field_selected = field_props.get('selected')
-                    print("\tValidating selection on {}.{}: {}".format(
+                    LOGGER.info("\tValidating selection on {}.{}: {}".format(
                         cat['stream_name'], field, field_selected))
                     self.assertTrue(field_selected, msg="Field not selected.")
             else:
@@ -278,6 +286,7 @@ class FreshdeskBaseTest(unittest.TestCase):
 
     @staticmethod
     def get_selected_fields_from_metadata(metadata):
+        """Return selected fields from the metadata"""
         selected_fields = set()
         for field in metadata:
             is_field_metadata = len(field['breadcrumb']) > 1

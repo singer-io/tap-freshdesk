@@ -54,12 +54,24 @@ def get_ordered_stream_list(currently_syncing, streams_to_sync):
 
 def get_stream_to_sync(selected_streams):
     """
-    Get the streams for which the sync function should be called(the parent in case of selected child streams).
+    Get the streams for which the sync function should be called
+    (the parent in case of selected child streams).
     """
     streams_to_sync = []
-    for stream_name, stream_obj in STREAMS.items():
-        if (stream_name in selected_streams) or any(child in selected_streams for child in stream_obj.children):
+
+    # Loop thru all selected streams
+    for stream_name in selected_streams:
+        stream_obj = STREAMS[stream_name]
+        # If the stream has a parent_stream, then it is a child stream
+        parent_stream = hasattr(stream_obj, 'parent') and stream_obj.parent
+
+        # Append selected parent streams
+        if not parent_stream:
             streams_to_sync.append(stream_name)
+        else:
+            # Append un-selected parent streams of selected children
+            if parent_stream not in selected_streams and parent_stream not in streams_to_sync:
+                streams_to_sync.append(parent_stream)
     return streams_to_sync
 
 def sync(client, config, state, catalog):
@@ -76,7 +88,7 @@ def sync(client, config, state, catalog):
     singer.write_state(state)
     currently_syncing = singer.get_currently_syncing(state)
     streams_to_sync = get_ordered_stream_list(currently_syncing, streams_to_sync)
-    for stream in filter(lambda x: STREAMS[x]().parent is None, streams_to_sync):
+    for stream in streams_to_sync:
         stream_obj = STREAMS[stream]()
 
         write_schemas(stream, catalog, selected_streams)
@@ -85,3 +97,4 @@ def sync(client, config, state, catalog):
         stream_obj.sync_obj(state, config["start_date"], client, catalog['streams'],
                                 selected_streams, streams_to_sync)
         singer.write_state(state)
+        update_currently_syncing(state, None)

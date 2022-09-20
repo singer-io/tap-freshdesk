@@ -5,24 +5,26 @@ from singer.bookmarks import get_bookmark
 
 
 LOGGER = singer.get_logger()
-PAGE_SIZE = 100
+DEFAULT_PAGE_SIZE = 100
 DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
 
-def get_min_bookmark(stream, streams_to_sync, start_date, state, bookmark_key, predefined_filter=None):
+def get_min_bookmark(stream, selected_streams, bookmark, start_date, state, bookmark_key, predefined_filter=None):
     """
     Get the minimum bookmark from the parent and its corresponding child bookmarks.
     """
 
     stream_obj = STREAMS[stream]()
-    min_bookmark =  dt.strftime(dt.now(), DATETIME_FMT)
-    if stream in streams_to_sync:
+    min_bookmark = bookmark
+    if stream in selected_streams:
+        # Get minimum of stream's bookmark(start date in case of no bookmark) and min_bookmark
         if predefined_filter:
             stream = stream + '_' + predefined_filter
         min_bookmark = min(min_bookmark, get_bookmark(state, stream, bookmark_key, start_date))
 
-    for child in filter(lambda x: x in streams_to_sync, stream_obj.children):
-        min_bookmark = min(min_bookmark, get_min_bookmark(child, streams_to_sync, start_date, state, bookmark_key))
+    # Iterate through all children and return minimum bookmark among all.
+    for child in stream_obj.children:
+        min_bookmark = min(min_bookmark, get_min_bookmark(child, selected_streams, bookmark, start_date, state, bookmark_key))
 
     return min_bookmark
 
@@ -49,15 +51,15 @@ class Stream:
     Base class representing tap-freshdesk streams.
     """
     tap_stream_id = None
-    replication_method = None
-    replication_keys = []
-    key_properties = []
+    replication_method = 'INCREMENTAL'
+    replication_keys = ['updated_at']
+    key_properties = ['id']
     endpoint = None
     filter_param = False
     children = []
     path = ''
     headers = {}
-    params = {"per_page": PAGE_SIZE, "page": 1}
+    params = {"per_page": DEFAULT_PAGE_SIZE, "page": 1}
     paginate = True
     parent = None
     id_key = None
@@ -90,18 +92,15 @@ class Stream:
         """
         Transform the chunk of records according to the schema and write the records based on the bookmark.
         """
-        params = copy.deepcopy(self.params)
         stream_catalog = get_schema(catalog, self.tap_stream_id)
         stream_id = self.tap_stream_id
 
         # Append the predefined filter in case it's present
         if predefined_filter:
-            params[self.filter_keyword] = predefined_filter
             stream_id = stream_id + '_' + predefined_filter
         bookmark = get_bookmark(state, stream_id, self.replication_keys[0], start_date)
         # The max bookmark so far for the child stream
         child_max_bookmark = None
-        # child_max_bookmarks = {}
 
         with singer.metrics.record_counter(self.tap_stream_id) as counter:
             with singer.Transformer() as transformer:
@@ -109,7 +108,7 @@ class Stream:
                 stream_metadata = singer.metadata.to_map(stream_catalog['metadata'])
                 for row in data:
                     if self.tap_stream_id in selected_streams and row[self.replication_keys[0]] >= bookmark:
-                        # Custom fields are expected to be strings, but sometimes the API sends 
+                        # Custom fields are expected to be strings, but sometimes the API sends
                         # booleans. We cast those to strings to match the schema.
                         if 'custom_fields' in row:
                             row['custom_fields'] = self.transform_dict(row['custom_fields'], force_str=self.force_str)
@@ -134,7 +133,7 @@ class Stream:
         """
         The base stream class sync_obj() function to fetch records.
         """
-        params = copy.deepcopy(self.params)
+        params = {**self.params, "per_page": client.page_size}
         full_url = self.build_url(client.base_url, self.parent_id)
 
         # Update the filter keyword in the params for date-filtered streams
@@ -142,8 +141,9 @@ class Stream:
             LOGGER.info("Syncing %s with filter %s", self.tap_stream_id, predefined_filter)
             params[self.filter_keyword] = predefined_filter
 
+        current_time = dt.strftime(dt.now(), DATETIME_FMT)
         # Get the minimum bookmark from the parent and the child streams
-        min_bookmark = get_min_bookmark(self.tap_stream_id, streams_to_sync, start_date, state, self.replication_keys[0], predefined_filter)
+        min_bookmark = get_min_bookmark(self.tap_stream_id, selected_streams, current_time, start_date, state, self.replication_keys[0], predefined_filter)
         max_bookmark = min_bookmark
         # Initialize the child_max_bookmarks dictionary
         child_max_bookmarks = {}
@@ -158,7 +158,7 @@ class Stream:
         # Paginate through the request
         while self.paginate:
             data = client.request(full_url, params)
-            self.paginate = len(data) >= PAGE_SIZE
+            self.paginate = len(data) >= client.page_size
             params['page'] += 1
             max_bookmark, child_max_bookmarks = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, child_max_bookmarks, predefined_filter)
         write_bookmark(self.tap_stream_id, selected_streams, max_bookmark, state, predefined_filter)
@@ -170,31 +170,31 @@ class Stream:
 
 
 class Agents(Stream):
+    """
+    https://developer.freshdesk.com/api/#list_all_agents
+    """
     tap_stream_id = 'agents'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'agents'
 
 class Companies(Stream):
+    """
+    https://developer.freshdesk.com/api/#list_all_companies
+    """
     tap_stream_id = 'companies'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'companies'
 
 class Groups(Stream):
+    """
+    https://developer.freshdesk.com/api/#list_all_groups
+    """
     tap_stream_id = 'groups'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'groups'
 
 class Roles(Stream):
+    """
+    https://developer.freshdesk.com/api/#list_all_roles
+    """
     tap_stream_id = 'roles'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'roles'
 
 class DateFilteredStream(Stream):
@@ -221,17 +221,17 @@ class DateFilteredStream(Stream):
             singer.write_bookmark(state, child, "updated_at", bm)
 
 class Tickets(DateFilteredStream):
+    """
+    https://developer.freshdesk.com/api/#list_all_tickets
+    """
     tap_stream_id = 'tickets'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'tickets'
     children = ['conversations', 'satisfaction_ratings', 'time_entries']
     id_key = 'id'
     date_filter = 'updated_since'
     params = {
-        "per_page": PAGE_SIZE,
-        'order_by': replication_keys[0],
+        "per_page": DEFAULT_PAGE_SIZE,
+        'order_by': "updated_at",
         'order_type': "asc",
         'include': "requester,company,stats"
     }
@@ -239,10 +239,10 @@ class Tickets(DateFilteredStream):
     filters = [None, 'deleted', 'spam']
 
 class Contacts(DateFilteredStream):
+    """
+    https://developer.freshdesk.com/api/#list_all_contacts
+    """
     tap_stream_id = 'contacts'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'contacts'
     id_key = 'id'
     date_filter = '_updated_since'
@@ -256,11 +256,13 @@ class ChildStream(Stream):
         """
         The child stream sync_obj() method to sync the child records
         """
-        params = copy.deepcopy(self.params)
+        params = {**self.params, "per_page": client.page_size}
         # Build the url for the request
         full_url = self.build_url(client.base_url, self.parent_id)
+
+        current_time = dt.strftime(dt.now(), DATETIME_FMT)
         # Get the min bookmark from the parent and the child streams
-        min_bookmark = get_min_bookmark(self.tap_stream_id, streams_to_sync, start_date, state, self.replication_keys[0], None)
+        min_bookmark = get_min_bookmark(self.tap_stream_id, selected_streams, current_time, start_date, state, self.replication_keys[0], None)
         max_bookmark = min_bookmark
         params['page'] = 1
         self.paginate = True
@@ -269,7 +271,7 @@ class ChildStream(Stream):
         # Paginate through the records
         while self.paginate:
             data = client.request(full_url, params)
-            self.paginate = len(data) >= PAGE_SIZE
+            self.paginate = len(data) >= client.page_size
             params['page'] += 1
             # Write the records based on the bookmark and return the max_bookmark for the page
             bookmark, _ = self.write_records(catalog, state, selected_streams, start_date, data, max_bookmark, client, streams_to_sync, None)
@@ -277,27 +279,27 @@ class ChildStream(Stream):
         return max_bookmark
 
 class Conversations(ChildStream):
+    """
+    https://developer.freshdesk.com/api/#list_all_ticket_notes
+    """
     tap_stream_id = 'conversations'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'tickets/{}/conversations'
     parent = 'tickets'
 
 
 class SatisfactionRatings(ChildStream):
+    """
+    https://developer.freshdesk.com/api/#view_ticket_satisfaction_ratings
+    """
     tap_stream_id = 'satisfaction_ratings'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'tickets/{}/satisfaction_ratings'
     parent = 'tickets'
 
 class TimeEntries(ChildStream):
+    """
+    https://developer.freshdesk.com/api/#list_all_ticket_timeentries
+    """
     tap_stream_id = 'time_entries'
-    key_properties = ['id']
-    replication_keys = ['updated_at']
-    replication_method = 'INCREMENTAL'
     path = 'tickets/{}/time_entries'
     parent = 'tickets'
 
