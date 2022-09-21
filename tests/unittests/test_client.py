@@ -33,4 +33,4 @@ class TestAccessToken(unittest.TestCase):
 
         # Verify that for check access token, `request` method was called
         self.assertTrue(mock_request.called)
-        mock_request.assert_called_with("https://sampleDomain.freshdesk.com/api/v2/roles", mock.ANY)
+        mock_request.assert_called_with('https://sampleDomain.freshdesk.com/api/v2/tickets/1/time_entries', {'per_page': 1, 'page': 1})
