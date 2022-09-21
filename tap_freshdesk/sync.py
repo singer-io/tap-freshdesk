@@ -3,6 +3,7 @@ from tap_freshdesk.streams import STREAMS
 
 LOGGER = singer.get_logger()
 
+
 def write_schemas(stream_id, catalog, selected_streams):
     """
     Write the schemas for each stream.
@@ -11,11 +12,12 @@ def write_schemas(stream_id, catalog, selected_streams):
 
     if stream_id in selected_streams:
         # Get catalog object for a particular stream.
-        stream = [cat for cat in catalog['streams'] if cat['tap_stream_id'] == stream_id ][0]
+        stream = [cat for cat in catalog['streams'] if cat['tap_stream_id'] == stream_id][0]
         singer.write_schema(stream_id, stream['schema'], stream['key_properties'])
 
     for child in stream_obj.children:
         write_schemas(child, catalog, selected_streams)
+
 
 def get_selected_streams(catalog):
     '''
@@ -28,9 +30,10 @@ def get_selected_streams(catalog):
         stream_metadata = stream['metadata']
         for entry in stream_metadata:
             # Stream metadata will have an empty breadcrumb
-            if not entry['breadcrumb'] and entry['metadata'].get('selected',None):
+            if not entry['breadcrumb'] and entry['metadata'].get('selected', None):
                 selected_streams.append(stream['tap_stream_id'])
     return selected_streams
+
 
 def update_currently_syncing(state, stream_name):
     """
@@ -42,6 +45,7 @@ def update_currently_syncing(state, stream_name):
         singer.set_currently_syncing(state, stream_name)
     singer.write_state(state)
 
+
 def get_ordered_stream_list(currently_syncing, streams_to_sync):
     """
     Get an ordered list of remaining streams to sync other streams followed by synced streams.
@@ -51,6 +55,7 @@ def get_ordered_stream_list(currently_syncing, streams_to_sync):
         index = stream_list.index(currently_syncing)
         stream_list = stream_list[index:] + stream_list[:index]
     return stream_list
+
 
 def get_stream_to_sync(selected_streams):
     """
@@ -74,6 +79,7 @@ def get_stream_to_sync(selected_streams):
                 streams_to_sync.append(parent_stream)
     return streams_to_sync
 
+
 def sync(client, config, state, catalog):
     """
     Sync selected streams.
@@ -95,6 +101,6 @@ def sync(client, config, state, catalog):
         update_currently_syncing(state, stream)
 
         stream_obj.sync_obj(state, config["start_date"], client, catalog['streams'],
-                                selected_streams, streams_to_sync)
+                            selected_streams, streams_to_sync)
         singer.write_state(state)
         update_currently_syncing(state, None)

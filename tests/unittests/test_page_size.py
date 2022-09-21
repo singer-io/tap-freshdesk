@@ -14,6 +14,7 @@ PAGE_SIZE_INVALID_STRING = "abc"
 class TestPageSizeValue(unittest.TestCase):
 
     @parameterized.expand([
+        # ["page_size_value", "expected_value"]
         [PAGE_SIZE_INT, PAGE_SIZE_INT],
         [PAGE_SIZE_STR_INT, PAGE_SIZE_INT],
         [PAGE_SIZE_STR_FLOAT, PAGE_SIZE_INT],
@@ -32,6 +33,7 @@ class TestPageSizeValue(unittest.TestCase):
         self.assertEqual(client.page_size, expected_value)
 
     @parameterized.expand([
+        # ["page_size_value"]
         [PAGE_SIZE_INVALID_STRING],
         [PAGE_SIZE_STR_ZERO],
         [PAGE_SIZE_ZERO],

@@ -16,9 +16,9 @@ class TestFreshdeskAutomaticFields(FreshdeskBaseTest):
         • Verify that only the automatic fields are sent to the target.
         • Verify that all replicated records have unique primary key values.
         """
-        
-        expected_streams = self.expected_streams(only_trial_account_streams = True)
-        
+
+        expected_streams = self.expected_streams(only_trial_account_streams=True)
+
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
 
@@ -39,16 +39,18 @@ class TestFreshdeskAutomaticFields(FreshdeskBaseTest):
 
         for stream in expected_streams:
             with self.subTest(stream=stream):
-                
+
                 # Expected values
                 expected_primary_keys = self.expected_primary_keys()[stream]
                 expected_keys = self.expected_automatic_fields().get(stream)
 
                 # Collect actual values
                 data = synced_records.get(stream, {})
-                record_messages_keys = [set(row.get('data').keys()) for row in data.get('messages', {})]
+                record_messages_keys = [set(row.get('data').keys()) 
+                                        for row in data.get('messages', {})]
                 primary_keys_list = [
-                    tuple(message.get('data').get(expected_pk) for expected_pk in expected_primary_keys)
+                    tuple(message.get('data').get(expected_pk) 
+                          for expected_pk in expected_primary_keys)
                     for message in data.get('messages')
                     if message.get('action') == 'upsert']
                 unique_primary_keys_list = set(primary_keys_list)

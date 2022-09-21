@@ -5,24 +5,24 @@ from tap_freshdesk.sync import (write_schemas, get_selected_streams,
                                 get_stream_to_sync, sync)
 
 
-def get_stream_catalog(stream_name, is_selected = False):
+def get_stream_catalog(stream_name, is_selected=False):
     """Return catalog for stream"""
     return {
-                "schema":{},
-                "tap_stream_id": stream_name,
-                "metadata": [
-                        {
-                            "breadcrumb": [],
-                            "metadata":{"selected": is_selected}
-                        }
-                    ],
-                "key_properties": []
+        "schema": {},
+        "tap_stream_id": stream_name,
+        "metadata": [
+            {
+                "breadcrumb": [],
+                "metadata":{"selected": is_selected}
             }
+        ],
+        "key_properties": []
+    }
 
 
 def get_catalog(parent=False, child=False):
     """Return complete catalog"""
-    
+
     return {
         "streams": [
             get_stream_catalog("agents"),
@@ -35,7 +35,6 @@ def get_catalog(parent=False, child=False):
     }
 
 
-
 class TestSyncFunctions(unittest.TestCase):
     """
     Test `sync` function.
@@ -43,17 +42,24 @@ class TestSyncFunctions(unittest.TestCase):
 
     # NOTE: For `tickets` stream `sync_obj` is called 3 times
     @parameterized.expand([
-        ["only_parent_selected", get_catalog(parent=True), ["companies", "tickets", "groups"], 5],
-        ["only_child_selected", get_catalog(child=True), ["conversations", "time_entries"], 3],
-        ["both_selected", get_catalog(parent=True, child=True), ["companies", "tickets", "groups", "conversations", "time_entries"], 5],
-        ["No_streams_selected", get_catalog(), [], 0],
+        # ["test_name", "mock_catalog", "selected_streams", "synced_streams"]
+        ["only_parent_selected", get_catalog(parent=True),
+         ["companies", "tickets", "groups"], 5],
+        ["only_child_selected", get_catalog(child=True),
+         ["conversations", "time_entries"], 3],
+        ["both_selected", get_catalog(parent=True, child=True),
+         ["companies", "tickets", "groups", "conversations", "time_entries"], 5],
+        ["No_streams_selected", get_catalog(),
+         [], 0],
     ])
     @mock.patch("singer.write_state")
     @mock.patch("singer.write_schema")
     @mock.patch("tap_freshdesk.streams.Stream.sync_obj")
-    def test_sync(self, name, mock_catalog, selected_streams, synced_streams, mock_sync_endpoint, mock_write_schemas, mock_write_state):
+    def test_sync(self, test_name, mock_catalog, selected_streams, synced_streams,
+                  mock_sync_endpoint, mock_write_schemas, mock_write_state):
         """
-        Test sync function.
+        Test sync function that for child streams selected parent sync_obj is called and,
+        schema is written only for selected streams.
         """
         client = mock.Mock()
         sync(client, {'start_date': ""}, {}, mock_catalog)
@@ -67,9 +73,9 @@ class TestSyncFunctions(unittest.TestCase):
         self.assertEqual(mock_sync_endpoint.call_count, synced_streams)
 
 
-class TestWriteSchemas(unittest.TestCase):
+class TestUtilsFunction(unittest.TestCase):
     """
-    Test `write_schemas` function.
+    Test functions used in `sync`.
     """
 
     mock_catalog = {"streams": [
@@ -79,32 +85,28 @@ class TestWriteSchemas(unittest.TestCase):
     ]}
 
     @parameterized.expand([
+        # [test_name, selected_streams, mock_write_schema]
         ["parents_selected", ["tickets"]],
         ["child_selected", ["time_entries"]],
         ["parent_and_child_selected", ["tickets", "conversations"]],
     ])
     @mock.patch("singer.write_schema")
-    def test_write_schema(self, name, selected_streams, mock_write_schema):
+    def test_write_schema(self, test_name, selected_streams, mock_write_schema):
         """
-        Test that only schema is written for only selected streams.
+        Test that `write_schemas` function writes schema of only selected streams.
         """
         write_schemas("tickets", self.mock_catalog, selected_streams)
         for stream in selected_streams:
             # Verify write_schema function is called.
             mock_write_schema.assert_any_call(stream, mock.ANY, mock.ANY)
 
-
-class TestGetStreamsToSync(unittest.TestCase):
-    """
-    Testcase for `get_stream_to_sync` in sync.
-    """
-
     @parameterized.expand([
+        # ["test_name", "selected_streams", "expected_streams"]
         ['test_parent_selected', ["tickets"], ["tickets"]],
         ['test_child_selected', ["conversations", "satisfaction_ratings"], ["tickets"]],
         ['test_both_selected', ["conversations", "roles", "tickets"], ["roles", "tickets"]]
     ])
-    def test_sync_streams(self, name, selected_streams, expected_streams):
+    def test_get_sync_streams(self, test_name, selected_streams, expected_streams):
         """
         Test that if an only child is selected in the catalog,
         then `get_stream_to_sync` returns the parent streams if selected stream is child.
@@ -113,12 +115,6 @@ class TestGetStreamsToSync(unittest.TestCase):
 
         # Verify that the expected list of streams is returned
         self.assertEqual(sync_streams, expected_streams)
-
-
-class TestGetSelectedStreams(unittest.TestCase):
-    """
-    Testcase for `get_selected_streams` in sync.
-    """
 
     def test_streams_selection(self):
         """

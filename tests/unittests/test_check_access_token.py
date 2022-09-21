@@ -11,7 +11,7 @@ class TestAccessToken(unittest.TestCase):
     @mock.patch("tap_freshdesk.client.FreshdeskClient.request")
     def test_access_token(self, mock_request):
         """
-        Test that to check access token a request call is made.
+        Test that to check the access token a request call is made.
         """
         config = {"domain": "sampleDomain"}
         _client = client.FreshdeskClient(config)
