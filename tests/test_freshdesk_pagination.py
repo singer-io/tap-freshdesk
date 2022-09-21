@@ -3,6 +3,7 @@ from tap_tester import connections, runner, LOGGER
 
 from base import FreshdeskBaseTest
 
+
 class PaginationTest(FreshdeskBaseTest):
 
     def name(self):
@@ -10,22 +11,28 @@ class PaginationTest(FreshdeskBaseTest):
 
     def test_name(self):
         LOGGER.info("Pagination Test for tap-freshdesk")
-
+    
+    def get_properties(self, *args, **kwargs):
+        """Override properties by passing page_size param."""
+        props = super().get_properties(*args, **kwargs)
+        props['page_size'] = self.PAGE_SIZE
+        return props
+    
     def test_run(self):
         """
         • Verify that for each stream you can get multiple pages of data.  
         This requires we ensure more than 1 page of data exists at all times for any given stream.
         • Verify by pks that the data replicated matches the data we expect.
         """
-        
-        # For roles stream data present in test account is limited. So, adding configurable page_size "2" 
+
+        # For roles stream data present in test account is limited. So, adding configurable page_size "2"
         streams_to_test_1 = {"roles"}
         self.run_test(streams_to_test_1, 2)
 
-        streams_to_test_2 = self.expected_streams(only_trial_account_streams = True) - streams_to_test_1
+        streams_to_test_2 = self.expected_streams(only_trial_account_streams=True) - streams_to_test_1
         self.run_test(streams_to_test_2, 100)
 
-    def run_test(self, streams_to_test ,page_size):
+    def run_test(self, streams_to_test, page_size):
 
         # Page size for pagination supported streams
         self.PAGE_SIZE = page_size
@@ -34,7 +41,7 @@ class PaginationTest(FreshdeskBaseTest):
         conn_id = connections.ensure_connection(self)
 
         expected_streams = streams_to_test
-        
+
         found_catalogs = self.run_and_verify_check_mode(conn_id)
 
         # Table and field selection
@@ -55,7 +62,7 @@ class PaginationTest(FreshdeskBaseTest):
             with self.subTest(stream=stream):
                 # Expected values
                 expected_primary_keys = self.expected_primary_keys()[stream]
-                
+
                 # Collect information for assertions from syncs 1 & 2 base on expected values
                 record_count_sync = sync_record_count.get(stream, 0)
                 primary_keys_list = [tuple(message.get('data').get(expected_pk)
@@ -66,7 +73,7 @@ class PaginationTest(FreshdeskBaseTest):
                 # Verify that for each stream you can get multiple pages of data
                 self.assertGreater(record_count_sync, page_size,
                                    msg="The number of records is not over the stream max limit")
-                
+
                 # Chunk the replicated records (just primary keys) into expected pages
                 pages = []
                 page_count = ceil(len(primary_keys_list) / page_size)

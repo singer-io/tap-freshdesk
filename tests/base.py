@@ -8,6 +8,7 @@ import time
 
 from tap_tester import menagerie, runner, connections, LOGGER
 
+
 class FreshdeskBaseTest(unittest.TestCase):
 
     REPLICATION_KEYS = "valid-replication-keys"
@@ -73,7 +74,7 @@ class FreshdeskBaseTest(unittest.TestCase):
 
     def expected_metadata(self):
         """The expected streams and metadata about the streams"""
-        return  {
+        return {
             "agents": {
                 self.PRIMARY_KEYS: {"id"},
                 self.REPLICATION_METHOD: self.INCREMENTAL,
@@ -200,11 +201,13 @@ class FreshdeskBaseTest(unittest.TestCase):
         menagerie.verify_check_exit_status(self, exit_status, check_job_name)
 
         found_catalogs = menagerie.get_catalogs(conn_id)
-        self.assertGreater(len(found_catalogs), 0, msg="unable to locate schemas for connection {}".format(conn_id))
+        self.assertGreater(len(found_catalogs), 0, 
+                           msg="unable to locate schemas for connection {}".format(conn_id))
 
         found_catalog_names = set(map(lambda c: c['stream_name'], found_catalogs))
         LOGGER.info(found_catalog_names)
-        self.assertSetEqual(self.expected_streams(), found_catalog_names, msg="discovered schemas do not match")
+        self.assertSetEqual(self.expected_streams(), found_catalog_names, 
+                            msg="discovered schemas do not match")
         LOGGER.info("discovered schemas are OK")
 
         return found_catalogs
@@ -225,7 +228,7 @@ class FreshdeskBaseTest(unittest.TestCase):
         # Verify actual rows were synced
         sync_record_count = runner.examine_target_output_file(self,
                                                               conn_id,
-                                                              self.expected_streams(),
+                                                              self.expected_streams(only_trial_account_streams=True),
                                                               self.expected_primary_keys())
         total_row_count = sum(sync_record_count.values())
         self.assertGreater(total_row_count, 0,
@@ -262,7 +265,7 @@ class FreshdeskBaseTest(unittest.TestCase):
             LOGGER.info("Validating selection on {}: {}".format(cat['stream_name'], selected))
             if cat['stream_name'] not in expected_selected:
                 self.assertFalse(selected, msg="Stream selected, but not testable.")
-                continue # Skip remaining assertions if we aren't selecting this stream
+                continue  # Skip remaining assertions if we aren't selecting this stream
             self.assertTrue(selected, msg="Stream not selected.")
 
             if select_all_fields:
@@ -285,7 +288,7 @@ class FreshdeskBaseTest(unittest.TestCase):
         for field in metadata:
             is_field_metadata = len(field['breadcrumb']) > 1
             inclusion_automatic_or_selected = (
-                field['metadata']['selected'] is True or \
+                field['metadata']['selected'] is True or
                 field['metadata']['inclusion'] == 'automatic'
             )
             if is_field_metadata and inclusion_automatic_or_selected:
@@ -330,10 +333,11 @@ class FreshdeskBaseTest(unittest.TestCase):
         """
         timedelta_by_stream = {stream: [0, 12, 0]  # {stream_name: [days, hours, minutes], ...}
                                for stream in current_state['bookmarks'].keys()}
-        
-        stream_to_calculated_state = {stream: "" for stream in current_state['bookmarks'].keys()}
+
+        stream_to_calculated_state = {
+            stream: "" for stream in current_state['bookmarks'].keys()}
         for stream, state in current_state['bookmarks'].items():
-            state_key, state_value = next(iter(state.keys())), next(iter(state.values()))
+            state_key, state_value = list(state.keys())[0], list(state.values())[0]
             state_as_datetime = dateutil.parser.parse(state_value)
 
             days, hours, minutes = timedelta_by_stream[stream]
