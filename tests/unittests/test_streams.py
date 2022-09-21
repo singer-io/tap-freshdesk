@@ -111,7 +111,7 @@ class TestSyncObj(unittest.TestCase):
         client.request.side_effect = [
             [{"id": i, "updated_at": f"2020-03-{i}T00:00:00Z"} for i in [11, 15, 12]],    # Tickets Response
             [{"id": 10+i, "updated_at": f"2020-03-{i}T00:00:00Z"} for i in [13, 24]],    # conversations Response
-            [{"id": 13, "updated_at": "2020-03-01T00:00:00Z"}],                 # conversations Response
+            [{"id": 13, "updated_at": "2020-03-01T00:00:00Z", "last_edited_at": "2020-03-02T00:00:00Z"}],                 # conversations Response
             [{"id": 95, "updated_at": "2020-04-01T00:00:00Z"}],                 # conversations Response
             [{"id": 73, "updated_at": "2020-05-01T00:00:00Z"}],                 # Deleted tickets response
             [{"id": 30+i, "updated_at": f"2020-03-{i}T00:00:00Z"}for i in [22, 10]],  # conversations response
