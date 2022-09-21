@@ -1,49 +1,50 @@
 import time
-
 import backoff
 import requests
 import singer
-from tap_freshdesk import utils
+from simplejson import JSONDecodeError
+from singer import utils
 
 LOGGER = singer.get_logger()
 BASE_URL = "https://{}.freshdesk.com"
-DEFAULT_TIMEOUT = 300
+REQUEST_TIMEOUT = 300
+DEFAULT_PAGE_SIZE = 100
 
 class FreshdeskException(Exception):
-    pass
+    """Custom error class for all the freshdesk errors."""
 
 class FreshdeskValidationError(FreshdeskException):
-    pass
+    """Custom error class for validation error."""
 
 class FreshdeskAuthenticationError(FreshdeskException):
-    pass
+    """Custom error class for authentication error."""
 
 class FreshdeskAccessDeniedError(FreshdeskException):
-    pass
+    """Custom error class for access denied error."""
 
 class FreshdeskNotFoundError(FreshdeskException):
-    pass
+    """Custom error class for not found error."""
 
 class FreshdeskMethodNotAllowedError(FreshdeskException):
-    pass
+    """Custom error class for method not allowed."""
 
 class FreshdeskUnsupportedAcceptHeaderError(FreshdeskException):
-    pass
+    """Custom error class for unsupported accept error."""
 
 class FreshdeskConflictingStateError(FreshdeskException):
-    pass
+    """Custom error class for conflicting state."""
 
 class FreshdeskUnsupportedContentError(FreshdeskException):
-    pass
+    """Custom error class for unsupported content."""
 
 class FreshdeskRateLimitError(FreshdeskException):
-    pass
+    """Custom error class for rate limit error."""
 
 class Server5xxError(FreshdeskException):
-    pass
+    """Custom error class for all the 5xx errors."""
 
 class FreshdeskServerError(Server5xxError):
-    pass
+    """Custom error class for 500 server error"""
 
 
 ERROR_CODE_EXCEPTION_MAPPING = {
@@ -57,7 +58,7 @@ ERROR_CODE_EXCEPTION_MAPPING = {
     },
     403: {
         "raise_exception": FreshdeskAccessDeniedError,
-        "message": "The agent whose credentials were used in making this request was not authorized to perform this API call."
+        "message": "The agent whose credentials were used to make this request was not authorized to perform this API call."
     },
     404: {
         "raise_exception": FreshdeskNotFoundError,
@@ -86,31 +87,31 @@ ERROR_CODE_EXCEPTION_MAPPING = {
     500: {
         "raise_exception": FreshdeskServerError,
         "message": "Unexpected Server Error."
-    },
+    }
 }
 
 def raise_for_error(response):
     """
     Retrieve the error code and the error message from the response and return custom exceptions accordingly.
     """
+    error_code = response.status_code
+    # Forming a response message for raising a custom exception
     try:
-        response.raise_for_status()
-    except (requests.HTTPError) as error:
-        error_code = response.status_code
-        # Forming a response message for raising a custom exception
-        try:
-            response_json = response.json()
-        except Exception:
-            response_json = {}
+        response_json = response.json()
+    except JSONDecodeError:
+        response_json = {}
 
-        if error_code not in ERROR_CODE_EXCEPTION_MAPPING and error_code > 500:
-            # Raise `Server5xxError` for all 5xx unknown error
-            exc = Server5xxError
-        else:
-            exc = ERROR_CODE_EXCEPTION_MAPPING.get(error_code, {}).get("raise_exception", FreshdeskException)
-        message = response_json.get("description", ERROR_CODE_EXCEPTION_MAPPING.get(error_code, {}).get("message", "Unknown Error"))
-        formatted_message = "HTTP-error-code: {}, Error: {}".format(error_code, message)
-        raise exc(formatted_message) from None
+    if error_code not in ERROR_CODE_EXCEPTION_MAPPING and error_code > 500:
+        # Raise `Server5xxError` for all 5xx unknown error
+        exc = Server5xxError
+    else:
+        exc = ERROR_CODE_EXCEPTION_MAPPING.get(error_code, {}).get("raise_exception", FreshdeskException)
+    message = response_json.get("description", ERROR_CODE_EXCEPTION_MAPPING.get(error_code, {}).get("message", "Unknown Error"))
+    code = response_json.get("code", "")
+    if code:
+        error_code = f"{str(error_code)} {code}"
+    formatted_message = "HTTP-error-code: {}, Error: {}".format(error_code, message)
+    raise exc(formatted_message) from None
 
 class FreshdeskClient:
     """
@@ -121,8 +122,9 @@ class FreshdeskClient:
         self.config = config
         self.session = requests.Session()
         self.base_url = BASE_URL.format(config.get("domain"))
-        self.timeout = DEFAULT_TIMEOUT
+        self.timeout = REQUEST_TIMEOUT
         self.set_timeout()
+        self.page_size = self.get_page_size()
 
     def __enter__(self):
         self.check_access_token()
@@ -134,15 +136,33 @@ class FreshdeskClient:
 
     def set_timeout(self):
         """
-        Set timeout value from config, if the value is passed. 
+        Set timeout value from config, if the value is passed.
         Else raise an exception.
         """
-        timeout = self.config.get("timeout", DEFAULT_TIMEOUT)
-        if ((type(timeout) in [int, float]) or 
-            (type(timeout)==str and timeout.replace('.', '', 1).isdigit())) and float(timeout):
-            self.timeout = int(float(timeout))
+        timeout = self.config.get("request_timeout", REQUEST_TIMEOUT)
+        if ((type(timeout) in [int, float]) or
+            (isinstance(timeout, str) and timeout.replace('.', '', 1).isdigit())) and float(timeout):
+            self.timeout = float(timeout)
         else:
             raise Exception("The entered timeout is invalid, it should be a valid none-zero integer.")
+
+    def get_page_size(self):
+        """
+        This function will get page size from config,
+        and will return the default value if an invalid page size is given.
+        """
+        page_size = self.config.get('page_size')
+
+        # return a default value if no page size is given in the config
+        if page_size is None:
+            return DEFAULT_PAGE_SIZE
+
+        # Return integer value if the valid value is given
+        if (type(page_size) in [int, float] and page_size > 0) or \
+                (isinstance(page_size, str) and page_size.replace('.', '', 1).isdigit() and (float(page_size) > 0)):
+            return int(float(page_size))
+        # Raise an exception for 0, "0" or invalid value of page_size
+        raise Exception("The entered page size is invalid, it should be a valid integer.")
 
     def check_access_token(self):
         """
@@ -156,11 +176,11 @@ class FreshdeskClient:
                             "Upgrade the current account to the Pro plan will work if this is the case. So, please check your account's plan.")
 
     @backoff.on_exception(backoff.expo,
-                          (TimeoutError, ConnectionError, Server5xxError),
+                          (requests.Timeout, requests.ConnectionError, Server5xxError),
                           max_tries=5,
                           factor=2)
     @utils.ratelimit(1, 2)
-    def request(self, url, params={}):
+    def request(self, url, params=None):
         """
         Call rest API and return the response in case of status code 200.
         """
@@ -169,13 +189,13 @@ class FreshdeskClient:
             headers['User-Agent'] = self.config['user_agent']
 
         req = requests.Request('GET', url, params=params, auth=(self.config['api_key'], ""), headers=headers).prepare()
-        LOGGER.info("GET {}".format(req.url))
-        response = self.session.send(req, timeout=DEFAULT_TIMEOUT)
+        LOGGER.info("GET %s", req.url)
+        response = self.session.send(req, timeout=self.timeout)
 
         # Call the function again if the rate limit is exceeded
         if 'Retry-After' in response.headers:
             retry_after = int(response.headers['Retry-After'])
-            LOGGER.info("Rate limit reached. Sleeping for {} seconds".format(retry_after))
+            LOGGER.info("Rate limit reached. Sleeping for %s seconds", retry_after)
             time.sleep(retry_after)
             return self.request(url, params)
 
