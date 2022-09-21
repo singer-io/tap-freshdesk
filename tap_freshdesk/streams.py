@@ -331,6 +331,9 @@ class TimeEntries(ChildStream):
     parent = 'tickets'
 
 class TicketFields(Stream):
+    """
+    https://developer.freshdesk.com/api/#list_all_ticket_fields
+    """
     tap_stream_id = 'ticket_fields'
     key_properties = ['id']
     replication_keys = ['updated_at']
