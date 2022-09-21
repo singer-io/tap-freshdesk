@@ -1,10 +1,8 @@
-import os
-
 from tap_tester import runner, connections, menagerie
 
 from base import FreshdeskBaseTest
 
-# As we are not able to generate following fields by Freshdesk UI, so removed it form expectation list.
+# As we are not able to generate following fields by Freshdesk UI, so removed it from expectation list.
 KNOWN_MISSING_FIELDS = {
     'tickets': {
         'facebook_id',
@@ -13,7 +11,6 @@ KNOWN_MISSING_FIELDS = {
         'twitter_id',
         'name',
         'phone',
-        'deleted',
         'email'
     },
     'groups': {
@@ -23,11 +20,19 @@ KNOWN_MISSING_FIELDS = {
     'agents': {
         'group_ids',
         'role_ids'
+    },
+    'contacts': {
+        'view_all_tickets',
+        'other_companies',
+        'other_emails',
+        'tags',
+        'avatar'
     }
 }
 
+
 class TestFreshdeskAllFields(FreshdeskBaseTest):
-    """Test that with all fields selected for a stream automatic and available fields are  replicated"""
+    """Test that with all fields selected for a stream automatic and available fields are replicated"""
 
     @staticmethod
     def name():
@@ -39,10 +44,9 @@ class TestFreshdeskAllFields(FreshdeskBaseTest):
         • Verify that more than just the automatic fields are replicated for each stream. 
         • Verify all fields for each stream are replicated
         """
-        
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {"time_entries", "satisfaction_ratings"}
-        
+
+        expected_streams = self.expected_streams(only_trial_account_streams=True)
+
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
 
@@ -57,7 +61,8 @@ class TestFreshdeskAllFields(FreshdeskBaseTest):
         )
 
         # Grab metadata after performing table-and-field selection to set expectations
-        stream_to_all_catalog_fields = dict() # used for asserting all fields are replicated
+        # used for asserting all fields are replicated
+        stream_to_all_catalog_fields = dict()
         for catalog in test_catalogs_all_fields:
             stream_id, stream_name = catalog['stream_id'], catalog['stream_name']
             catalog_entry = menagerie.get_annotated_schema(conn_id, stream_id)
@@ -88,10 +93,11 @@ class TestFreshdeskAllFields(FreshdeskBaseTest):
                 for message in messages['messages']:
                     if message['action'] == 'upsert':
                         actual_all_keys.update(message['data'].keys())
-                    
+
                 expected_all_keys = expected_all_keys - KNOWN_MISSING_FIELDS.get(stream, set())
 
                 # Verify all fields for a stream were replicated
-                self.assertGreater(len(expected_all_keys), len(expected_automatic_fields))
-                self.assertTrue(expected_automatic_fields.issubset(expected_all_keys), msg=f'{expected_automatic_fields-expected_all_keys} is not in "expected_all_keys"')
+                self.assertGreater(len(expected_all_keys),len(expected_automatic_fields))
+                self.assertTrue(expected_automatic_fields.issubset(expected_all_keys), 
+                                msg=f'{expected_automatic_fields - expected_all_keys} is not in "expected_all_keys"')
                 self.assertSetEqual(expected_all_keys, actual_all_keys)

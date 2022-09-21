@@ -1,26 +1,26 @@
-import tap_tester.connections as connections
-import tap_tester.runner as runner
+from tap_tester import connections, runner
 
 from base import FreshdeskBaseTest
 
+
 class ParentChildIndependentTest(FreshdeskBaseTest):
     """
-        Test case to verify that tap is working fine if only first-level child streams are selected
+    Test case to verify that tap is working fine if only first-level child streams are selected
     """  
-  
+
     def name(self):
         return "tap_tester_freshdesk_parent_child_test"
 
     def test_run(self):
         """
-            Testing that tap is working fine if only child streams are selected
+        Testing that tap is working fine if only child streams are selected
             • Verify that if only child streams are selected then only child streams are replicated.
         """
 
-        # Test for the case of child is selected and parent is not selected
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
+        # To collect "time_entries", "satisfaction_ratings"(child streams of "tickets") pro account is needed.
+        # Skipping them for now.
         child_streams = {'conversations'}
-        
+
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
 

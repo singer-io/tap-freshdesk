@@ -12,6 +12,9 @@ LOGGER = singer.get_logger()
 
 @utils.handle_top_exception(LOGGER)
 def main():
+    """
+    Run discover mode or sync mode.
+    """
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)
     config = args.config
     with FreshdeskClient(config) as client:
@@ -22,6 +25,7 @@ def main():
             catalog = args.catalog \
                 if args.catalog else _discover()
             _sync(client, config, args.state, catalog.to_dict())
+
 
 if __name__ == "__main__":
     main()

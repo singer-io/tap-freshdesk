@@ -4,7 +4,8 @@ from tap_freshdesk import client
 import requests
 import json
 
-def get_response(status_code, json_resp={}, headers = None):
+
+def get_response(status_code, json_resp={}, headers=None):
     """
     Returns mock response
     """
