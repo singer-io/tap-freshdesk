@@ -42,7 +42,7 @@ class FreshdeskClient:
 
         # Return integer value if the valid value is given
         if (type(page_size) in [int, float] and page_size > 0) or \
-            (isinstance(page_size, str) and page_size.replace('.', '', 1).isdigit() and (float(page_size) > 0)):
+                (isinstance(page_size, str) and page_size.replace('.', '', 1).isdigit() and (float(page_size) > 0)):
             return int(float(page_size))
         # Raise an exception for 0, "0" or invalid value of page_size
         raise Exception("The entered page size is invalid, it should be a valid integer.")
