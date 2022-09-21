@@ -93,7 +93,7 @@ class Stream:
         return base_url + '/api/v2/' + self.path.format(*args)
 
     def add_fields_at_1st_level(self, record):
-        pass
+        """Adding nested fields at first level."""
 
     def write_records(self, catalog, state, selected_streams, start_date, data, max_bookmark,
                       client, streams_to_sync, child_max_bookmarks, predefined_filter=None):

@@ -39,6 +39,7 @@ class TestConversationSync(unittest.TestCase):
         stream = Tickets()
         state = {}
         client = mock.Mock()
+        client.page_size = 100
         client.base_url = ""
         client.request.side_effect = responses
 
