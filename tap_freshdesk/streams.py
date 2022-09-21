@@ -320,6 +320,8 @@ class Conversations(ChildStream):
         """
         Overwrite updated__at value.
         """
+        # For edited conversations `last_edited_at` value gets update instead of `updated_at`
+        # Hence `updated_at` will be overwritten if `last_edited_at` > `updated_at`
         if record.get("last_edited_at"):
             record["updated_at"] = max(record["updated_at"], record["last_edited_at"])
 
