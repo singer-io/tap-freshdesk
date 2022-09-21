@@ -43,9 +43,10 @@ class TestAccessToken(unittest.TestCase):
         self.assertEqual(mock_logger.call_count, 1)
 
         # Verify expected warning message.
-        mock_logger.assert_called_with('The `Surveys` and the `Timesheets` features are not supported in your current plan. '\
-            'So, Data collection cannot be initiated for satisfaction_ratings and time_entries streams. Please upgrade your '\
-            'account to `Pro` plan to use it.')
+        mock_logger.assert_called_with("The `Surveys` and the `Timesheets` features might not be supported in your current plan. "\
+                                        "So, Data collection cannot be initiated for satisfaction_ratings and time_entries streams. "\
+                                        "Upgrade the current account to the Pro plan will work if this is the case. "\
+                                        "So, please check your account's plan.")
 
     @mock.patch("tap_freshdesk.client.LOGGER.warning")
     def test_pro_account_plan(self, mock_logger, mock_request):
