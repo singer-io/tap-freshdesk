@@ -11,40 +11,40 @@ REQUEST_TIMEOUT = 300
 DEFAULT_PAGE_SIZE = 100
 
 class FreshdeskException(Exception):
-    pass
+    """Custom error class for all the freshdesk errors."""
 
 class FreshdeskValidationError(FreshdeskException):
-    pass
+    """Custom error class for validation error."""
 
 class FreshdeskAuthenticationError(FreshdeskException):
-    pass
+    """Custom error class for authentication error."""
 
 class FreshdeskAccessDeniedError(FreshdeskException):
-    pass
+    """Custom error class for access denied error."""
 
 class FreshdeskNotFoundError(FreshdeskException):
-    pass
+    """Custom error class for not found error."""
 
 class FreshdeskMethodNotAllowedError(FreshdeskException):
-    pass
+    """Custom error class for method not allowed."""
 
 class FreshdeskUnsupportedAcceptHeaderError(FreshdeskException):
-    pass
+    """Custom error class for unsupported accept error."""
 
 class FreshdeskConflictingStateError(FreshdeskException):
-    pass
+    """Custom error class for conflicting state."""
 
 class FreshdeskUnsupportedContentError(FreshdeskException):
-    pass
+    """Custom error class for unsupported content."""
 
 class FreshdeskRateLimitError(FreshdeskException):
-    pass
+    """Custom error class for rate limit error."""
 
 class Server5xxError(FreshdeskException):
-    pass
+    """Custom error class for all the 5xx errors."""
 
 class FreshdeskServerError(Server5xxError):
-    pass
+    """Custom error class for 500 server error"""
 
 
 ERROR_CODE_EXCEPTION_MAPPING = {
