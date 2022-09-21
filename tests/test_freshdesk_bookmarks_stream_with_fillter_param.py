@@ -1,18 +1,17 @@
-import tap_tester.connections as connections
-import tap_tester.runner as runner
-import tap_tester.menagerie as menagerie
-import dateutil.parser
-from datetime import timedelta
-from datetime import datetime as dt
+from tap_tester import connections, runner, menagerie
 
 from base import FreshdeskBaseTest
 
+
 class BookmarkTest(FreshdeskBaseTest):
-    """Test tap sets a separate bookmark for PUBLISHED and SCHEDULED tweets and 
-    respects it for the next sync of a tweets stream"""
-    
+    """
+    Test tap sets a separate bookmark for tickets and contacts streams filter param 
+    tickets_deleted, tickets_spam, contacts_deleted and contacts_blocked 
+    and respects it for the next sync.
+    """
+
     def name(self):
-        return "tap_tester_freshdesk_bookmark_test"
+        return "tap_tester_freshdesk_bookmarks_stream_with_filter_param"
 
     def test_run(self):
         """
@@ -28,7 +27,7 @@ class BookmarkTest(FreshdeskBaseTest):
         For EACH stream that is incrementally replicated, there are multiple rows of data with
             different values for the replication key
         """
-        
+
         streams_to_test = {'tickets', 'contacts'}
         expected_replication_keys = self.expected_replication_keys()
 
@@ -77,115 +76,78 @@ class BookmarkTest(FreshdeskBaseTest):
         for stream in streams_to_test:
             with self.subTest(stream=stream):
 
-                replication_key = next(iter(expected_replication_keys[stream]))
+                replication_key = list(expected_replication_keys[stream])[0]
                 if stream == 'tickets':
-                    filter_streams = ['deleted', 'spam']
+                    stream_filters = ['', 'deleted', 'spam']
+                # Skipping "contacts_blocked" filter as there is no data present for it.
                 if stream == 'contacts':
-                    filter_streams = ['deleted', 'blocked']
+                    stream_filters = ['', 'deleted']
 
-                # collect information for assertions from syncs 1 & 2 base on expected values
                 second_sync_count = second_sync_record_count.get(stream, 0)
-                first_sync_messages = [record.get('data') for record in
-                                       first_sync_records.get(
-                                           stream, {}).get('messages', [])
-                                       if record.get('action') == 'upsert']
-                second_sync_messages = [record.get('data') for record in
-                                        second_sync_records.get(
-                                            stream, {}).get('messages', [])
-                                        if record.get('action') == 'upsert']
+                # Verify at least 1 record was replicated in the second sync
+                self.assertGreater(
+                    second_sync_count, 0, msg="We are not fully testing bookmarking for {}".format(stream))
 
-                # Get bookmark for tickets/contacts stream
-                first_bookmark_value = first_sync_bookmarks.get('bookmarks', {}).get(stream, {}).get(replication_key)
-                second_bookmark_value = second_sync_bookmarks.get('bookmarks', {}).get(stream, {}).get(replication_key)                        
-                
-                first_bookmark_value_ts = self.dt_to_ts(first_bookmark_value, self.BOOKMARK_FORMAT)
-                second_bookmark_value_ts = self.dt_to_ts(second_bookmark_value, self.BOOKMARK_FORMAT)
+                for filter in stream_filters:
+                    filter_stream = stream
+                    if filter:
+                        filter_stream = filter_stream + "_" + filter
 
-                simulated_bookmark_value = self.dt_to_ts(new_states['bookmarks'][stream][replication_key], self.BOOKMARK_FORMAT)
+                        # Collect information for assertions from syncs 1 & 2 base on expected values
+                        first_sync_messages = [record.get('data') for record in
+                                               first_sync_records.get(stream, {}).get('messages', [])
+                                               if record.get('action') == 'upsert' and record.get('data').get(filter) == 'true']
+                        second_sync_messages = [record.get('data') for record in
+                                                second_sync_records.get(stream, {}).get('messages', [])
+                                                if record.get('action') == 'upsert' and record.get('data').get(filter) == 'true']
+                    else:
+                        # Collect information for assertions from syncs 1 & 2 base on expected values
+                        first_sync_messages = [record.get('data') for record in
+                                               first_sync_records.get(stream, {}).get('messages', [])
+                                               if record.get('action') == 'upsert' and not any(record.get('data').get(_filter) for _filter in stream_filters)]
+                        second_sync_messages = [record.get('data') for record in
+                                                second_sync_records.get(stream, {}).get('messages', [])
+                                                if record.get('action') == 'upsert' and not any(record.get('data').get(_filter) for _filter in stream_filters)]
 
-                # Get bookmark for contacts_deleted/tickets_deleted
-                first_1_bookmark_value = first_sync_bookmarks.get('bookmarks', {}).get(stream + '_' +filter_streams[0], {}).get(replication_key)
-                second_1_bookmark_value = second_sync_bookmarks.get('bookmarks', {}).get(stream + '_' +filter_streams[0], {}).get(replication_key)
-                
-                first_1_bookmark_value_ts = self.dt_to_ts(first_bookmark_value, self.BOOKMARK_FORMAT)
-                second_1_bookmark_value_ts = self.dt_to_ts(second_bookmark_value, self.BOOKMARK_FORMAT)
-                
-                simulated_1_bookmark_value = self.dt_to_ts(new_states['bookmarks'][stream + '_' +filter_streams[0]][replication_key], self.BOOKMARK_FORMAT)
+                    # Get bookmark for tickets/contacts stream
+                    first_bookmark_value = first_sync_bookmarks.get('bookmarks', {}).get(filter_stream, {}).get(replication_key)
+                    second_bookmark_value = second_sync_bookmarks.get('bookmarks', {}).get(filter_stream, {}).get(replication_key)
 
-                # Get bookmark for contacts_blocked/tickets_spam
-                first_2_bookmark_value = first_sync_bookmarks.get('bookmarks', {}).get(stream + '_' +filter_streams[1], {}).get(replication_key)
-                second_2_bookmark_value = second_sync_bookmarks.get('bookmarks', {}).get(stream + '_' +filter_streams[1], {}).get(replication_key)
+                    first_bookmark_value_ts = self.dt_to_ts(first_bookmark_value, self.BOOKMARK_FORMAT)
+                    second_bookmark_value_ts = self.dt_to_ts(second_bookmark_value, self.BOOKMARK_FORMAT)
 
-                first_2_bookmark_value_ts = self.dt_to_ts(first_bookmark_value, self.BOOKMARK_FORMAT)
-                second_2_bookmark_value_ts = self.dt_to_ts(second_bookmark_value, self.BOOKMARK_FORMAT)
-                
-                simulated_2_bookmark_value = self.dt_to_ts(new_states['bookmarks'][stream + '_' +filter_streams[1]][replication_key], self.BOOKMARK_FORMAT)
-                
-                # Verify the first sync sets bookmarks of the expected form
-                self.assertIsNotNone(first_bookmark_value)
-                self.assertIsNotNone(first_1_bookmark_value)
-                self.assertIsNotNone(first_2_bookmark_value)
-                
-                # Verify the second sync sets bookmarks of the expected form
-                self.assertIsNotNone(second_bookmark_value)
-                self.assertIsNotNone(second_1_bookmark_value)
-                self.assertIsNotNone(second_2_bookmark_value)
+                    simulated_bookmark_value = self.dt_to_ts(
+                        new_states['bookmarks'][filter_stream][replication_key], self.BOOKMARK_FORMAT)
 
-                for record in first_sync_messages:
+                    # Verify the first sync sets bookmarks of the expected form
+                    self.assertIsNotNone(first_bookmark_value)
 
-                    # Verify the first sync bookmark value is the max replication key value for a given stream
-                    replication_key_value = record.get(replication_key)
-                    if record.get(filter_streams[0], None) in ["false", None] and record.get(filter_streams[1], None) in ["false", None]:
+                    # Verify the second sync sets bookmarks of the expected form
+                    self.assertIsNotNone(second_bookmark_value)
+
+                    for record in first_sync_messages:
+
+                        # Verify the first sync bookmark value is the max replication key value for a given stream
+                        replication_key_value = self.dt_to_ts(record.get(replication_key), self.BOOKMARK_FORMAT)
                         # Verify the first sync bookmark value is the max replication key value for a tickets/contacts stream
                         self.assertLessEqual(
                             replication_key_value, first_bookmark_value_ts,
-                            msg=("First sync bookmark for {} was set incorrectly, a record with a greater replication-key value was synced.".format(stream))
+                            msg=(
+                                "First sync bookmark for {} was set incorrectly, a \
+                                record with a greater replication-key value was synced.".format(stream))
                         )
-                    elif record.get(filter_streams[0]) == "true":
-                        # Verify the first sync bookmark value is the max replication key value for a contacts_deleted/tickets_deleted
-                        self.assertLessEqual(
-                            replication_key_value, first_1_bookmark_value_ts,
-                            msg=("First sync bookmark for {}_{} was set incorrectly, a record with a greater replication-key value was synced.".format(stream, filter_streams[0]))
-                        )
-                    elif record.get(filter_streams[1]) == "true":
-                        # Verify the first sync bookmark value is the max replication key value for a contacts_blocked/tickets_spam
-                        self.assertLessEqual(
-                            replication_key_value, first_2_bookmark_value_ts,
-                            msg=("First sync bookmark for {}_{} was set incorrectly, a record with a greater replication-key value was synced.".format(stream, filter_streams[1]))
-                        )
-                
-                for record in second_sync_messages:
-                    
-                    # Verify the first sync bookmark value is the max replication key value for a given stream
-                    replication_key_value = record.get(replication_key)
-                    if record.get(filter_streams[0], None) in ["false", None] and record.get(filter_streams[1], None) in ["false", None]:                        
-                        # Verify the first sync bookmark value is the max replication key value for a tickets/contacts stream
+
+                    for record in second_sync_messages:
+
+                        # Verify the second sync bookmark value is the max replication key value for a given stream
+                        replication_key_value = self.dt_to_ts(record.get(replication_key), self.BOOKMARK_FORMAT)
+                        # Verify the second sync bookmark value is the max replication key value for a tickets/contacts stream
                         self.assertGreaterEqual(replication_key_value, simulated_bookmark_value,
                                                 msg=("Second sync records do not respect the previous bookmark for {}.".format(stream)))
 
                         self.assertLessEqual(
                             replication_key_value, second_bookmark_value_ts,
-                            msg=("First sync bookmark for {} was set incorrectly, a record with a greater replication-key value was synced.".format(stream))
+                            msg=(
+                                "First sync bookmark for {} was set incorrectly, a record with a \
+                                greater replication-key value was synced.".format(stream))
                         )
-                    elif record.get(filter_streams[0]) == "true":
-                        # Verify the first sync bookmark value is the max replication key value for a contacts_deleted/tickets_deleted
-                        self.assertGreaterEqual(replication_key_value, simulated_1_bookmark_value,
-                                                msg=("Second sync records do not respect the previous bookmark for {}_{}.".format(stream, filter_streams[0])))
-
-                        self.assertLessEqual(
-                            replication_key_value, second_1_bookmark_value_ts,
-                            msg=("First sync bookmark for {}_{} was set incorrectly, a record with a greater replication-key value was synced.".format(stream, filter_streams[0]))
-                        )
-                    elif record.get(filter_streams[1]) == "true":
-                        # Verify the first sync bookmark value is the max replication key value for a contacts_blocked/tickets_spam
-                        self.assertGreaterEqual(replication_key_value, simulated_2_bookmark_value,
-                                                msg=("Second sync records do not respect the previous bookmark for {}_{}.".format(stream, filter_streams[0])))
-
-                        self.assertLessEqual(
-                            replication_key_value, second_2_bookmark_value_ts,
-                            msg=("First sync bookmark for {}_{} was set incorrectly, a record with a greater replication-key value was synced.".format(stream, filter_streams[1]))
-                        )
-
-                # Verify at least 1 record was replicated in the second sync
-                self.assertGreater(
-                    second_sync_count, 0, msg="We are not fully testing bookmarking for {}".format(stream))

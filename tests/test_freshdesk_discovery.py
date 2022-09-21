@@ -1,9 +1,9 @@
-"""Test tap discovery mode and metadata."""
 import re
 
 from tap_tester import menagerie, connections
 
 from base import FreshdeskBaseTest
+
 
 class TestFreshdeskDiscovery(FreshdeskBaseTest):
 
@@ -17,10 +17,10 @@ class TestFreshdeskDiscovery(FreshdeskBaseTest):
         • Verify the stream names discovered were what we expect
         • Verify stream names follow naming convention
           streams should only have lowercase alphas and underscores
-        • verify there is only 1 top level breadcrumb
-        • verify primary key(s)
-        • verify that primary keys are given the inclusion of automatic.
-        • verify that all other fields have inclusion of available metadata.
+        • Verify there is only 1 top level breadcrumb
+        • Verify primary key(s)
+        • Verify that primary keys are given the inclusion of automatic.
+        • Verify that all other fields have inclusion of available metadata.
         """
         streams_to_test = self.expected_streams()
 
@@ -37,8 +37,8 @@ class TestFreshdeskDiscovery(FreshdeskBaseTest):
             with self.subTest(stream=stream):
 
                 # Verify ensure the catalog is found for a given stream
-                catalog = next(iter([catalog for catalog in found_catalogs
-                                     if catalog["stream_name"] == stream]))
+                catalog = list([catalog for catalog in found_catalogs
+                                if catalog["stream_name"] == stream])[0]
                 self.assertIsNotNone(catalog)
 
                 # Collecting expected values
@@ -63,7 +63,7 @@ class TestFreshdeskDiscovery(FreshdeskBaseTest):
 
                 actual_replication_method = stream_properties[0].get(
                     "metadata", {self.REPLICATION_METHOD: None}).get(self.REPLICATION_METHOD)
-                    
+
                 actual_automatic_fields = set(
                     item.get("breadcrumb", ["properties", None])[1] for item in metadata
                     if item.get("metadata").get("inclusion") == "automatic"
@@ -75,21 +75,22 @@ class TestFreshdeskDiscovery(FreshdeskBaseTest):
                         actual_fields.append(md_entry['breadcrumb'][1])
 
                 ##########################################################################
-                ### metadata assertions
+                # Metadata assertions
                 ##########################################################################
 
                 # Verify there is only 1 top-level breadcrumb in metadata
                 self.assertTrue(len(stream_properties) == 1,
-                                msg="There is NOT only one top level breadcrumb for {}".format(stream) + \
+                                msg="There is NOT only one top level breadcrumb for {}".format(stream) +
                                 "\nstream_properties | {}".format(stream_properties))
 
                 # Verify there is no duplicate metadata entries
-                self.assertEqual(len(actual_fields), len(set(actual_fields)), msg = "duplicates in the fields retrieved")
+                self.assertEqual(len(actual_fields), len(
+                    set(actual_fields)), msg="duplicates in the fields retrieved")
 
                 # Verify replication key(s) match expectations
                 self.assertEqual(expected_replication_keys, actual_replication_keys,
-                                    msg="expected replication key {} but actual is {}".format(
-                                        expected_replication_keys, actual_replication_keys))
+                                 msg="expected replication key {} but actual is {}".format(
+                                     expected_replication_keys, actual_replication_keys))
 
                 # Verify primary key(s) match expectations
                 self.assertSetEqual(
@@ -98,17 +99,17 @@ class TestFreshdeskDiscovery(FreshdeskBaseTest):
 
                 # Verify the replication method matches our expectations
                 self.assertEqual(expected_replication_method, actual_replication_method,
-                                    msg="The actual replication method {} doesn't match the expected {}".format(
-                                        actual_replication_method, expected_replication_method))
+                                 msg="The actual replication method {} doesn't match the expected {}".format(
+                                     actual_replication_method, expected_replication_method))
 
                 # Verify that if there is a replication key we are doing INCREMENTAL otherwise FULL
                 if expected_replication_keys:
-                    self.assertEqual(self.INCREMENTAL, actual_replication_method)
+                    self.assertEqual(self.INCREMENTAL,actual_replication_method)
                 else:
                     self.assertEqual(self.FULL_TABLE, actual_replication_method)
 
                 # Verify that primary keys are given the inclusion of automatic in metadata.
-                self.assertSetEqual(expected_automatic_fields, actual_automatic_fields)
+                self.assertSetEqual(expected_automatic_fields,actual_automatic_fields)
 
                 # Verify that all other fields have the inclusion available
                 # This assumes there are no unsupported fields for SaaS sources
@@ -118,4 +119,4 @@ class TestFreshdeskDiscovery(FreshdeskBaseTest):
                          if item.get("breadcrumb", []) != []
                          and item.get("breadcrumb", ["properties", None])[1]
                          not in actual_automatic_fields}),
-                    msg="Not all non-key properties are set to available in metadata")                    
+                    msg="Not all non-key properties are set to available in metadata")

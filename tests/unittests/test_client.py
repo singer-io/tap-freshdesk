@@ -1,6 +1,20 @@
 import unittest
 from unittest import mock
 from tap_freshdesk import client
+import requests
+import json
+
+
+def get_response(status_code, json_resp={}, headers=None):
+    """
+    Returns mock response
+    """
+    response = requests.Response()
+    response.status_code = status_code
+    response._content = json.dumps(json_resp).encode()
+    if headers:
+        response.headers = headers
+    return response
 
 
 class TestAccessToken(unittest.TestCase):
@@ -11,7 +25,7 @@ class TestAccessToken(unittest.TestCase):
     @mock.patch("tap_freshdesk.client.FreshdeskClient.request")
     def test_access_token(self, mock_request):
         """
-        Test that to check the access token a request call is made.
+        Test that to check access token a request call is made.
         """
         config = {"domain": "sampleDomain"}
         _client = client.FreshdeskClient(config)

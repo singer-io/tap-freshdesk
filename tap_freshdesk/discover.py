@@ -4,6 +4,7 @@ from tap_freshdesk.schema import get_schemas
 
 LOGGER = singer.get_logger()
 
+
 def discover():
     """
     Run the discovery mode, prepare the catalog file and return the catalog.
@@ -25,7 +26,7 @@ def discover():
         catalog.streams.append(CatalogEntry(
             stream=stream_name,
             tap_stream_id=stream_name,
-            key_properties= key_properties,
+            key_properties=key_properties,
             schema=schema,
             metadata=mdata
         ))

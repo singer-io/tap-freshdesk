@@ -1,14 +1,14 @@
 import time
-
 import backoff
 import requests
 import singer
 from simplejson import JSONDecodeError
-from tap_freshdesk import utils
+from singer import utils
 
 LOGGER = singer.get_logger()
 BASE_URL = "https://{}.freshdesk.com"
 REQUEST_TIMEOUT = 300
+DEFAULT_PAGE_SIZE = 100
 
 class FreshdeskException(Exception):
     pass
@@ -124,6 +124,7 @@ class FreshdeskClient:
         self.base_url = BASE_URL.format(config.get("domain"))
         self.timeout = REQUEST_TIMEOUT
         self.set_timeout()
+        self.page_size = self.get_page_size()
 
     def __enter__(self):
         self.check_access_token()
@@ -144,6 +145,24 @@ class FreshdeskClient:
             self.timeout = float(timeout)
         else:
             raise Exception("The entered timeout is invalid, it should be a valid none-zero integer.")
+
+    def get_page_size(self):
+        """
+        This function will get page size from config,
+        and will return the default value if an invalid page size is given.
+        """
+        page_size = self.config.get('page_size')
+
+        # return a default value if no page size is given in the config
+        if page_size is None:
+            return DEFAULT_PAGE_SIZE
+
+        # Return integer value if the valid value is given
+        if (type(page_size) in [int, float] and page_size > 0) or \
+                (isinstance(page_size, str) and page_size.replace('.', '', 1).isdigit() and (float(page_size) > 0)):
+            return int(float(page_size))
+        # Raise an exception for 0, "0" or invalid value of page_size
+        raise Exception("The entered page size is invalid, it should be a valid integer.")
 
     def check_access_token(self):
         """

@@ -1,13 +1,4 @@
-import re
-import os
-import pytz
-import time
-import dateutil.parser
-
-from datetime import timedelta
-from datetime import datetime
-
-from tap_tester import menagerie, connections, runner, LOGGER
+from tap_tester import menagerie, connections, runner
 
 from base import FreshdeskBaseTest
 
@@ -26,23 +17,21 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         • Verify that a second sync respects the bookmark
             All data of the second sync is >= the bookmark from the first sync
             The number of records in the 2nd sync is less then the first
-        • Verify that for full table stream, all data replicated in sync 1 is replicated again in sync 2.
-        
+
         PREREQUISITE
         For EACH stream that is incrementally replicated there are multiple rows of data with
             different values for the replication key
         """
-        
-        # Tickets and Contacts stream also collectes some deleted data on the basis of filter param.
-        # Written seprate bookmark test case for them in test_freshdesk_bookmarks_stream_with_fillter_param.py
-        # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = self.expected_streams() - {'tickets', 'contacts'} - {"satisfaction_ratings", "time_entries"}
+
+        # Tickets and Contacts stream also collect some deleted data on the basis of filter param.
+        # Written separate bookmark test case for them in test_freshdesk_bookmarks_stream_with_fillter_param.py
+        expected_streams = self.expected_streams(only_trial_account_streams=True) - {'tickets', 'contacts'}
 
         expected_replication_keys = self.expected_replication_keys()
         expected_replication_methods = self.expected_replication_method()
 
         ##########################################################################
-        ### First Sync
+        # First Sync
         ##########################################################################
 
         conn_id = connections.ensure_connection(self)
@@ -63,7 +52,7 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         first_sync_bookmarks = menagerie.get_state(conn_id)
 
         ##########################################################################
-        ### Update State Between Syncs
+        # Update State Between Syncs
         ##########################################################################
 
         new_states = {'bookmarks': dict()}
@@ -71,9 +60,9 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         for stream, new_state in simulated_states.items():
             new_states['bookmarks'][stream] = new_state
         menagerie.set_state(conn_id, new_states)
-        
+
         ##########################################################################
-        ### Second Sync
+        # Second Sync
         ##########################################################################
 
         second_sync_record_count = self.run_and_verify_sync(conn_id)
@@ -81,7 +70,7 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
         second_sync_bookmarks = menagerie.get_state(conn_id)
 
         ##########################################################################
-        ### Test By Stream
+        # Test By Stream
         ##########################################################################
 
         for stream in expected_streams:  # Add supported streams 1 by 1
@@ -89,13 +78,13 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
 
                 # Expected values
                 expected_replication_method = expected_replication_methods[stream]
-                
+
                 # Collect information for assertions from syncs 1 & 2 base on expected values
                 first_sync_count = first_sync_record_count.get(stream, 0)
                 second_sync_count = second_sync_record_count.get(stream, 0)
                 first_sync_messages = [record.get('data') for record in
-                                    first_sync_records.get(stream, {'messages': []}).get('messages')
-                                    if record.get('action') == 'upsert']
+                                       first_sync_records.get(stream, {'messages': []}).get('messages')
+                                       if record.get('action') == 'upsert']
                 second_sync_messages = [record.get('data') for record in
                                         second_sync_records.get(stream, {'messages': []}).get('messages')
                                         if record.get('action') == 'upsert']
@@ -103,16 +92,17 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
                 second_bookmark_key_value = second_sync_bookmarks.get('bookmarks', {}).get(stream)
 
                 if expected_replication_method == self.INCREMENTAL:
-                    
+
                     # Collect information specific to incremental streams from syncs 1 & 2
-                    replication_key = next(iter(expected_replication_keys[stream]))
+                    replication_key = list(expected_replication_keys[stream])[0]
                     first_bookmark_value = first_bookmark_key_value.get(replication_key)
                     second_bookmark_value = second_bookmark_key_value.get(replication_key)
-                    
+
                     first_bookmark_value_ts = self.dt_to_ts(first_bookmark_value, self.BOOKMARK_FORMAT)
                     second_bookmark_value_ts = self.dt_to_ts(second_bookmark_value, self.BOOKMARK_FORMAT)
 
-                    simulated_bookmark_value_ts = self.dt_to_ts(new_states['bookmarks'][stream][replication_key], self.BOOKMARK_FORMAT)
+                    simulated_bookmark_value_ts = self.dt_to_ts(
+                        new_states['bookmarks'][stream][replication_key], self.BOOKMARK_FORMAT)
 
                     # Verify the first sync sets a bookmark of the expected form
                     self.assertIsNotNone(first_bookmark_key_value)
@@ -123,27 +113,31 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
                     self.assertIsNotNone(second_bookmark_value)
 
                     # Verify the second sync bookmark is Equal or Greater than the first sync bookmark
-                    self.assertGreaterEqual(second_bookmark_value_ts, first_bookmark_value_ts)
+                    self.assertGreaterEqual(
+                        second_bookmark_value_ts, first_bookmark_value_ts)
 
                     for record in first_sync_messages:
                         # Verify the first sync bookmark value is the max replication key value for a given stream
-                        replication_key_value = self.dt_to_ts(record.get(replication_key), self.BOOKMARK_FORMAT)
-                        
+                        replication_key_value = self.dt_to_ts(
+                            record.get(replication_key), self.BOOKMARK_FORMAT)
+
                         self.assertLessEqual(
                             replication_key_value, first_bookmark_value_ts,
-                            msg="First sync bookmark was set incorrectly, a record with a greater replication-key value was synced."
+                            msg="First sync bookmark was set incorrectly, a record with a \
+                                 greater replication-key value was synced."
                         )
 
                     for record in second_sync_messages:
                         # Verify the second sync bookmark value is the max replication key value for a given stream
                         replication_key_value = self.dt_to_ts(record.get(replication_key), self.BOOKMARK_FORMAT)
-                        
+
                         self.assertGreaterEqual(replication_key_value, simulated_bookmark_value_ts,
                                                 msg="Second sync records do not respect the previous bookmark.")
-                        
+
                         self.assertLessEqual(
                             replication_key_value, second_bookmark_value_ts,
-                            msg="Second sync bookmark was set incorrectly, a record with a greater replication-key value was synced."
+                            msg="Second sync bookmark was set incorrectly, a record with a \
+                                greater replication-key value was synced."
                         )
 
                     # Verify the number of records in the 2nd sync is less then the first
@@ -152,8 +146,10 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
                 # No full table streams for freshdesk as of Jan 31 2022
                 else:
                     raise NotImplementedError(
-                        "INVALID EXPECTATIONS\t\tSTREAM: {} REPLICATION_METHOD: {}".format(stream, expected_replication_method)
+                        "INVALID EXPECTATIONS\t\tSTREAM: {} REPLICATION_METHOD: {}".format(
+                            stream, expected_replication_method)
                     )
 
                 # Verify at least 1 record was replicated in the second sync
-                self.assertGreater(second_sync_count, 0, msg="We are not fully testing bookmarking for {}".format(stream))
+                self.assertGreater(
+                    second_sync_count, 0, msg="We are not fully testing bookmarking for {}".format(stream))
