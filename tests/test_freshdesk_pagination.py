@@ -26,7 +26,7 @@ class PaginationTest(FreshdeskBaseTest):
         """
 
         # For roles stream data present in test account is limited. So, adding configurable page_size "2"
-        streams_to_test_1 = {"roles"}
+        streams_to_test_1 = {"roles", "ticket_fields"}
         self.run_test(streams_to_test_1, 2)
 
         streams_to_test_2 = self.expected_streams(only_trial_account_streams=True) - streams_to_test_1
