@@ -2,6 +2,7 @@ import copy
 from datetime import datetime as dt
 import singer
 from singer.bookmarks import get_bookmark
+from tap_freshdesk.client import FreshdeskNotFoundError
 
 
 LOGGER = singer.get_logger()
@@ -329,6 +330,15 @@ class TimeEntries(ChildStream):
     tap_stream_id = 'time_entries'
     path = 'tickets/{}/time_entries'
     parent = 'tickets'
+
+    def sync_obj(self, state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter=None):
+        try:
+            return super().sync_obj(state, start_date, client, catalog, selected_streams, streams_to_sync, predefined_filter)
+        except FreshdeskNotFoundError:
+            # Skipping 404 error as it is returned for deleted tickets and spam
+            LOGGER.warning("Could not retrieve time entries for ticket id %s. This may be caused by tickets "
+                           "marked as spam or deleted.", self.parent_id)
+            return None
 
 
 STREAMS = {
