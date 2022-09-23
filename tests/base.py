@@ -1,7 +1,6 @@
 import os
 import unittest
 import dateutil.parser
-import datetime
 from datetime import datetime as dt
 from datetime import timedelta
 import time
@@ -342,7 +341,7 @@ class FreshdeskBaseTest(unittest.TestCase):
             calculated_state_as_datetime = state_as_datetime - timedelta(days=days, hours=hours, minutes=minutes)
 
             state_format = self.BOOKMARK_FORMAT
-            calculated_state_formatted = datetime.datetime.strftime(calculated_state_as_datetime, state_format)
+            calculated_state_formatted = dt.strftime(calculated_state_as_datetime, state_format)
             stream_to_calculated_state[stream] = {state_key: calculated_state_formatted}
 
         return stream_to_calculated_state

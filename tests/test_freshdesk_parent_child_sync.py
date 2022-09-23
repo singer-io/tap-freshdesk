@@ -106,7 +106,8 @@ class FreshdeskBookmarks(FreshdeskBaseTest):
                     replication_key_value = self.dt_to_ts(
                         record.get(replication_key), self.BOOKMARK_FORMAT)
                     
-                    # Verify that the records replicated for the selected streams are >= given bookmark.
+                    # Verify that the records replicated for the selected streams are greater than or
+                    # equal to given bookmark.
                     self.assertGreaterEqual(
                         replication_key_value, sync_start_date_ts,
                         msg="Sync records do not respect the provided bookmark."
