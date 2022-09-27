@@ -14,6 +14,7 @@ This tap:
   - [Satisfaction Ratings](https://developer.freshdesk.com/api/#satisfaction-ratings)
   - [Tickets](https://developer.freshdesk.com/api/#tickets)
   - [Time Entries](https://developer.freshdesk.com/api/#time-entries)
+  - [Ticket Fields](https://developer.freshdesk.com/api/#ticket-fields)
 - Outputs the schema for each resource
 - Incrementally pulls data based on the input state
 
