@@ -1,58 +1,93 @@
-from tap_tester import menagerie, connections, runner
-import re
+from math import ceil
+from tap_tester import connections, runner, LOGGER
 
 from base import FreshdeskBaseTest
+
 
 class PaginationTest(FreshdeskBaseTest):
 
     def name(self):
-        return "tap_freshdesk_pagination_test"
+        return "tap_tester_freshdesk_pagination_test"
 
     def test_name(self):
-        print("Pagination Test for tap-freshdesk")
-
+        LOGGER.info("Pagination Test for tap-freshdesk")
+    
+    def get_properties(self, *args, **kwargs):
+        """Override properties by passing page_size param."""
+        props = super().get_properties(*args, **kwargs)
+        props['page_size'] = self.PAGE_SIZE
+        return props
+    
     def test_run(self):
+        """
+        • Verify that for each stream you can get multiple pages of data.  
+        This requires we ensure more than 1 page of data exists at all times for any given stream.
+        • Verify by pks that the data replicated matches the data we expect.
+        """
 
-        # instantiate connection
+        # For roles stream data present in test account is limited. So, adding configurable page_size "2"
+        streams_to_test_1 = {"roles"}
+        self.run_test(streams_to_test_1, 2)
+
+        streams_to_test_2 = self.expected_streams(only_trial_account_streams=True) - streams_to_test_1
+        self.run_test(streams_to_test_2, 100)
+
+    def run_test(self, expected_streams, page_size):
+
+        # Page size for pagination supported streams
+        self.PAGE_SIZE = page_size
+
+        # Instantiate connection
         conn_id = connections.ensure_connection(self)
 
-        # Add supported streams 1 by 1
-        streams_to_test = {'agents', 'tickets'}
+        found_catalogs = self.run_and_verify_check_mode(conn_id)
 
-        # Run check mode
-        # Check mode has no catalog discovery for freshdesk
-        check_job_name = self.run_and_verify_check_mode(conn_id)
+        # Table and field selection
+        test_catalogs = [catalog for catalog in found_catalogs
+                         if catalog.get('stream_name') in expected_streams]
 
-        # Run sync mode
+        self.perform_and_verify_table_and_field_selection(conn_id, test_catalogs)
+
         sync_record_count = self.run_and_verify_sync(conn_id)
         sync_records = runner.get_records_from_target_output()
 
+        # Verify no unexpected streams were replicated
+        synced_stream_names = set(sync_records.keys())
+        self.assertSetEqual(expected_streams, synced_stream_names)
+
         # Test by stream
-        for stream in streams_to_test:
+        for stream in expected_streams:
             with self.subTest(stream=stream):
+                # Expected values
+                expected_primary_keys = self.expected_primary_keys()[stream]
 
-                record_count = sync_record_count.get(stream, 0)
+                # Collect information for assertions from syncs 1 & 2 base on expected values
+                record_count_sync = sync_record_count.get(stream, 0)
+                primary_keys_list = [tuple(message.get('data').get(expected_pk)
+                                     for expected_pk in expected_primary_keys)
+                                     for message in sync_records.get(stream).get('messages')
+                                     if message.get('action') == 'upsert']
 
-                sync_messages = sync_records.get(stream, {'messages': []}).get('messages')
+                # Verify that for each stream you can get multiple pages of data
+                self.assertGreater(record_count_sync, page_size,
+                                   msg="The number of records is not over the stream max limit")
 
-                primary_keys = self.expected_primary_keys().get(stream)
+                # Chunk the replicated records (just primary keys) into expected pages
+                pages = []
+                page_count = ceil(len(primary_keys_list) / page_size)
+                for page_index in range(page_count):
+                    page_start = page_index * page_size
+                    page_end = (page_index + 1) * page_size
+                    pages.append(set(primary_keys_list[page_start:page_end]))
 
-                # Verify the sync meets or exceeds the default record count
-                # for streams - conversations, time_entries, satisfaction_ratings, roles, groups,
-                # and companies creating test data is a challenge in freshdesk.  These streams will
-                # be excluded from this assertion for now
-                # Spike created to address this issue : TDL - TODO
+                # Verify by primary keys that data is unique for each page
+                for current_index, current_page in enumerate(pages):
+                    with self.subTest(current_page_primary_keys=current_page):
 
-                stream_page_size = self.expected_page_limits()[stream]
-                self.assertLess(stream_page_size, record_count)
-                print("stream_page_size: {} < record_count {} for stream: {}".format(stream_page_size, record_count, stream))
+                        for other_index, other_page in enumerate(pages):
+                            if current_index == other_index:
+                                continue  # don't compare the page to itself
 
-                # Verify there are no duplicates accross pages
-                records_pks_set = {tuple([message.get('data').get(primary_key)
-                                          for primary_key in primary_keys])
-                                   for message in sync_messages}
-                records_pks_list = [tuple([message.get('data').get(primary_key)
-                                           for primary_key in primary_keys])
-                                    for message in sync_messages]
-
-                self.assertCountEqual(records_pks_set, records_pks_list, msg=f"We have duplicate records for {stream}")
+                            self.assertTrue(
+                                current_page.isdisjoint(other_page), msg=f'other_page_primary_keys={other_page}'
+                            )
