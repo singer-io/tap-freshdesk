@@ -6,9 +6,6 @@ from base import FreshdeskBaseTest
 class FreshdeskStartDateTest(FreshdeskBaseTest):
     """Test that the start_date configuration is respected"""
 
-    start_date_1 = ""
-    start_date_2 = ""
-
     @staticmethod
     def name():
         return "tap_tester_freshdesk_start_date_test"
@@ -24,13 +21,13 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         • Verify by primary key values, that all records in the 1st sync are included in the 2nd sync.
         """
 
-        self.start_date_1 = self.get_properties().get('start_date')
-        self.start_date_2 = "2022-07-19T00:00:00Z"
+        start_date_1 = self.get_properties().get('start_date')
+        start_date_2 = "2022-07-19T00:00:00Z"
 
-        self.start_date = self.start_date_1
+        self.start_date = start_date_1
 
-        start_date_1_epoch = self.dt_to_ts(self.start_date_1, self.START_DATE_FORMAT)
-        start_date_2_epoch = self.dt_to_ts(self.start_date_2, self.START_DATE_FORMAT)
+        start_date_1_epoch = self.dt_to_ts(start_date_1, self.START_DATE_FORMAT)
+        start_date_2_epoch = self.dt_to_ts(start_date_2, self.START_DATE_FORMAT)
 
         expected_streams = self.expected_streams(only_trial_account_streams=True)
 
@@ -59,8 +56,8 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         ##########################################################################
 
         LOGGER.info("REPLICATION START DATE CHANGE: {} ===>>> {} ".format(
-            self.start_date, self.start_date_2))
-        self.start_date = self.start_date_2
+            self.start_date, start_date_2))
+        self.start_date = start_date_2
 
         ##########################################################################
         # Second Sync
@@ -126,7 +123,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
                         self.assertGreaterEqual(
                             self.dt_to_ts(bookmark_key_value, self.BOOKMARK_FORMAT), start_date_1_epoch,
                             msg="Report pertains to a date prior to our start date.\n" +
-                            "Sync start_date: {}\n".format(self.start_date_1) +
+                            "Sync start_date: {}\n".format(start_date_1) +
                                 "Record date: {} ".format(bookmark_key_value)
                         )
 
@@ -135,7 +132,7 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
                         self.assertGreaterEqual(
                             self.dt_to_ts(bookmark_key_value, self.BOOKMARK_FORMAT), start_date_2_epoch,
                             msg="Report pertains to a date prior to our start date.\n" +
-                            "Sync start_date: {}\n".format(self.start_date_2) +
+                            "Sync start_date: {}\n".format(start_date_2) +
                                 "Record date: {} ".format(bookmark_key_value)
                         )
 

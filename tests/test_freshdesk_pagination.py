@@ -32,15 +32,13 @@ class PaginationTest(FreshdeskBaseTest):
         streams_to_test_2 = self.expected_streams(only_trial_account_streams=True) - streams_to_test_1
         self.run_test(streams_to_test_2, 100)
 
-    def run_test(self, streams_to_test, page_size):
+    def run_test(self, expected_streams, page_size):
 
         # Page size for pagination supported streams
         self.PAGE_SIZE = page_size
 
         # Instantiate connection
         conn_id = connections.ensure_connection(self)
-
-        expected_streams = streams_to_test
 
         found_catalogs = self.run_and_verify_check_mode(conn_id)
 
