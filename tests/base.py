@@ -18,9 +18,10 @@ class FreshdeskBaseTest(unittest.TestCase):
     FULL = "FULL_TABLE"
 
     start_date = ""
-    START_DATE_FORMAT = "%Y-%m-%dT00:00:00Z"  # %H:%M:%SZ
+    PAGE_SIZE = 100
+    START_DATE_FORMAT = "%Y-%m-%dT00:00:00Z" # %H:%M:%SZ
     BOOKMARK_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
-
+    RECORD_REPLICATION_KEY_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
     OBEYS_START_DATE = "obey-start-date"
     PAGE_SIZE = 100
 
@@ -50,7 +51,8 @@ class FreshdeskBaseTest(unittest.TestCase):
         :param original: set to false to change the start_date or end_date
         """
         return_value = {
-            'start_date': '2019-01-04T00:00:00Z',
+            'start_date' : '2019-01-04T00:00:00Z',
+            'page_size': self.PAGE_SIZE
         }
         if original:
             return return_value
