@@ -14,11 +14,11 @@ class FreshdeskStartDateTest(FreshdeskBaseTest):
         return "tap_tester_freshdesk_start_date_test"
 
     def test_run(self):
-        # Streams to verify start date tests
-        expected_streams = self.expected_streams()
-
+        """
+        Run start date test with corresponding start_date according to data availability for each stream.
+        """
         # To collect "time_entries", "satisfaction_ratings" pro account is needed. Skipping them for now.
-        expected_streams = expected_streams - {'satisfaction_ratings', 'time_entries'}
+        expected_streams = self.expected_streams() - {'satisfaction_ratings', 'time_entries'}
         
         # Running start_date_test for `ticket_fields` stream
         expected_stream_1 = {"ticket_fields"}
