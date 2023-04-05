@@ -20,6 +20,9 @@
     "updated_at": {
       "type": ["null", "string"],
       "format": "date-time"
+    },
+    "agent_type": {
+      "type": ["null", "string"]
     }
   }
 }
