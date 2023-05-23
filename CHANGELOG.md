@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.11.1
+  * Dependabot update [#56](https://github.com/singer-io/tap-freshdesk/pull/56)
+
 ## 0.11.0
   * Add `integer` as a valid type for `groups.auto_ticket_assign` [#42](https://github.com/singer-io/tap-freshdesk/pull/42)
 
