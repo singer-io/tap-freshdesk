@@ -137,7 +137,7 @@ def sync_tickets_by_filter(bookmark_property, predefined_filter=None):
         'updated_since': start,
         'order_by': bookmark_property,
         'order_type': "asc",
-        'include': "requester,company,stats"
+        'include': "requester,company,stats,description"
     }
 
     if predefined_filter:
