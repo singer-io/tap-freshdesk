@@ -91,23 +91,13 @@ class BaseStream(ABC):
     def __init__(self, client=None) -> None:
         self.client = client
 
-    def get_records(self) -> List:
+    def get_records(self, state: Dict) -> List:
         """Interacts with api client interaction and pagination."""
         extraction_url = self.url_endpoint
         page_count = 1
         if self.page_size:
             self.params.update({"per_page": self.page_size})
-            # self.params.update({"page": 1})
-            # self.params.update({"order_by": self.replication_keys[0]})
-            # self.params.update({"include": "requester,company,stats"})
-            # self.params.update({"order_type": "asc"})
-            # self.params.update({"updated_since": })
-    #             params = {
-    #     'updated_since': start,
-    #     'order_by': bookmark_property,
-    #     'order_type': "asc",
-    #     'include': "requester,company,stats"
-    # }
+            self.params.update({"page": 1})
 
         while True:
             LOGGER.info("Calling Page %s", page_count)
@@ -175,7 +165,7 @@ class IncrementalStream(BaseStream):
             bookmark_date
         )
         with metrics.record_counter(self.tap_stream_id) as counter:
-            for record in self.get_records():
+            for record in self.get_records(state):
                 transformed_record = transformer.transform(
                     record, schema, stream_metadata
                 )
