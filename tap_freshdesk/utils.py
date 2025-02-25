@@ -72,8 +72,8 @@ def update_state(state, entity, dt):
 
 def parse_args(required_config_keys):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', help='Config file', required=True)
-    parser.add_argument('-s', '--state', help='State file')
+    parser.add_argument("-c", "--config", help="Config file", required=True)
+    parser.add_argument("-s", "--state", help="State file")
     args = parser.parse_args()
 
     config = load_json(args.config)

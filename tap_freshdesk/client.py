@@ -23,8 +23,8 @@ def raise_for_error(response: requests.Response) -> None:
     except Exception:
         response_json = {}
     if response.status_code != 200:
-        if response_json.get('error'):
-            message = "HTTP-error-code: {}, Error: {}".format(response.status_code, response_json.get('error'))
+        if response_json.get("error"):
+            message = "HTTP-error-code: {}, Error: {}".format(response.status_code, response_json.get("error"))
         else:
             message = "HTTP-error-code: {}, Error: {}".format(
                 response.status_code,
@@ -47,11 +47,11 @@ class Client:
     def __init__(self, config: Mapping[str, Any]) -> None:
         self.config = config
         self._session = session()
-        domain = config.get('domain')
-        self.base_url = f'https://{domain}.freshdesk.com/api/v2'
+        domain = config.get("domain")
+        self.base_url = f"https://{domain}.freshdesk.com/api/v2"
 
 
-        config_request_timeout = config.get('request_timeout')
+        config_request_timeout = config.get("request_timeout")
         if config_request_timeout and float(config_request_timeout):
             self.request_timeout = float(config_request_timeout)
         else:
@@ -67,23 +67,13 @@ class Client:
     def check_api_credentials(self) -> None:
         pass
 
-    # def authenticate(self, headers: Dict, params: Dict) -> Tuple[Dict, Dict]:
-    #     """Authenticates the request with the token"""
-    #     headers[''] = self.config['']
-    #     return headers, params
-
     def get(self, endpoint: str, params: Dict, headers: Dict, path: str = None) -> Any:
         """Calls the make_request method with a prefixed method type `GET`"""
         endpoint = endpoint or f"{self.base_url}/{path}"
-        # headers, params = self.authenticate(headers, params)
-        LOGGER.info("GET params..............: %s", params)
-        LOGGER.info("GET headers..............: %s", headers)
-        return self.__make_request("GET", endpoint, headers=headers, params=params, auth=(self.config['api_key'], ""), timeout=self.request_timeout)
+        return self.__make_request("GET", endpoint, headers=headers, params=params, auth=(self.config["api_key"], ""), timeout=self.request_timeout)
 
     def post(self, endpoint: str, params: Dict, headers: Dict, body: Dict, path: str = None) -> Any:
         """Calls the make_request method with a prefixed method type `POST`"""
-
-        # headers, params = self.authenticate(headers, params)
         self.__make_request("POST", endpoint, headers=headers, params=params, data=body, timeout=self.request_timeout)
 
 

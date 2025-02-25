@@ -17,7 +17,7 @@ def load_schema_references() -> Dict:
     """
     Load the schema files from the schema folder and return the schema references.
     """
-    shared_schema_path = get_abs_path('schemas/shared')
+    shared_schema_path = get_abs_path("schemas/shared")
 
     shared_file_names = []
     if os.path.exists(shared_schema_path):
@@ -27,7 +27,7 @@ def load_schema_references() -> Dict:
     refs = {}
     for shared_schema_file in shared_file_names:
         with open(os.path.join(shared_schema_path, shared_schema_file)) as data_file:
-            refs['shared/' + shared_schema_file] = json.load(data_file)
+            refs["shared/" + shared_schema_file] = json.load(data_file)
 
     return refs
 
@@ -40,7 +40,7 @@ def get_schemas() -> Tuple[Dict, Dict]:
 
     refs = load_schema_references()
     for stream_name, stream_obj in STREAMS.items():
-        schema_path = get_abs_path('schemas/{}.json'.format(stream_name))
+        schema_path = get_abs_path("schemas/{}.json".format(stream_name))
         with open(schema_path) as file:
             schema = json.load(file)
 
@@ -50,19 +50,19 @@ def get_schemas() -> Tuple[Dict, Dict]:
         mdata = metadata.new()
         mdata = metadata.get_standard_metadata(
                 schema=schema,
-                key_properties = getattr(stream_obj, 'key_properties'),
-                valid_replication_keys = (getattr(stream_obj, 'replication_keys') or []),
-                replication_method = getattr(stream_obj, 'replication_method')
+                key_properties = getattr(stream_obj, "key_properties"),
+                valid_replication_keys = (getattr(stream_obj, "replication_keys") or []),
+                replication_method = getattr(stream_obj, "replication_method")
             )
         mdata = metadata.to_map(mdata)
 
 
-        automatic_keys = getattr(stream_obj, 'replication_keys') or []
-        for field_name in schema['properties'].keys():
+        automatic_keys = getattr(stream_obj, "replication_keys") or []
+        for field_name in schema["properties"].keys():
             if field_name in automatic_keys:
-                mdata = metadata.write(mdata, ('properties', field_name), 'inclusion', 'automatic')
+                mdata = metadata.write(mdata, ("properties", field_name), "inclusion", "automatic")
 
         mdata = metadata.to_list(mdata)
         field_metadata[stream_name] = mdata
-    
+
     return schemas, field_metadata

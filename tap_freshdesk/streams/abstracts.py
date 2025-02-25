@@ -29,8 +29,16 @@ class BaseStream(ABC):
     url_endpoint = ""
     path = ""
     page_size = 10
-    params = {}
-    headers = {'Accept': 'application/json'}
+    headers = {"Accept": "application/json"}
+    children = []
+    parent = ""
+
+    def __init__(self, client=None, schema=None, metadata=None) -> None:
+        self.client = client
+        self.schema = schema
+        self.metadata = metadata
+        self.child_to_sync = []
+        self.params = {}
 
     @property
     @abstractmethod
@@ -70,15 +78,18 @@ class BaseStream(ABC):
 
     @abstractmethod
     def sync(
-        self, state: Dict, schema: Dict, stream_metadata: Dict, transformer: Transformer
+        self,
+        state: Dict,
+        transformer: Transformer,
+        parent_obj: Dict = None,
     ) -> Dict:
         """
         Performs a replication sync for the stream.
         ~~~
         Args:
          - state (dict): represents the state file for the tap.
-         - schema (dict): Schema of the stream
          - transformer (object): A Object of the singer.transformer class.
+         - parent_obj (dict): The parent object for the stream.
 
         Returns:
          - bool: The return value. True for success, False otherwise.
@@ -87,57 +98,62 @@ class BaseStream(ABC):
          - https://github.com/singer-io/getting-started/blob/master/docs/SYNC_MODE.md
         """
 
-    def __init__(self, client=None) -> None:
-        self.client = client
-
     def get_records(self) -> List:
         """Interacts with api client interaction and pagination."""
         extraction_url = self.url_endpoint
         page_count = 1
-        # # Fetch the bookmark for incremental sync
-        # updated_since = self.get_bookmark(state)
 
         # Set initial params
-        self.params.update({
-            "per_page": self.page_size,
-            # "updated_since": updated_since,
-            "page": page_count
-        })
+        self.params.update({"per_page": self.page_size, "page": page_count})
 
         while True:
             LOGGER.info("Calling Page %s", page_count)
             response = self.client.get(
                 extraction_url, self.params, self.headers, self.path
             )
-            LOGGER.info("Response......................: %s", response)
             raw_records = response
-            # next_page = response.get(self.next_page_key)
 
             if not raw_records:
                 LOGGER.warning("No records found on Page %s", page_count)
                 break
-            # self.params[self.next_page_key] = next_page
-            # page_count += 1
             yield from raw_records
 
             if len(raw_records) == self.page_size:
                 LOGGER.info("Fetching Page %s", page_count)
                 page_count += 1
-                self.params["page"] = page_count    #added while testing contacts and companies stream INCREMENTAL
+                self.params["page"] = page_count
             else:
                 break
-            # if not next_page:
-            #     break
 
-    def write_schema(self, schema, stream_name):
+    def write_schema(self):
         """
         Write a schema message.
         """
         try:
-            write_schema(stream_name, schema, self.key_properties)
+            write_schema(self.tap_stream_id, self.schema, self.key_properties)
         except OSError as err:
-            LOGGER.error("OS Error while writing schema for: {}".format(stream_name))
+            LOGGER.error(
+                "OS Error while writing schema for: {}".format(self.tap_stream_id)
+            )
             raise err
+
+    def modify_object(
+        self, data, key_field="name", value_field="value", force_to_string=False
+    ):
+        # Custom fields are expected to be strings, but sometimes the API sends
+        # booleans. We cast those to strings to match the schema.
+        result = []
+        for key, value in data.items():
+            if force_to_string:
+                value = str(value).lower()
+            result.append({key_field: key, value_field: value})
+        return result
+
+    def get_url_endpoint(self, parent_obj: Dict = None) -> str:
+        """
+        Get the URL endpoint for the stream
+        """
+        return self.url_endpoint
 
 
 class IncrementalStream(BaseStream):
@@ -164,16 +180,6 @@ class IncrementalStream(BaseStream):
             state, self.tap_stream_id, key or self.replication_keys[0], value
         )
 
-    def transform_dict(self, d, key_key="name", value_key="value", force_str=False):
-        # Custom fields are expected to be strings, but sometimes the API sends
-        # booleans. We cast those to strings to match the schema.
-        rtn = []
-        for k, v in d.items():
-            if force_str:
-                v = str(v).lower()
-            rtn.append({key_key: k, value_key: v})
-        return rtn
-
     def get_records(self, state: Dict) -> List:
         """Interacts with api client interaction and pagination."""
         extraction_url = self.url_endpoint
@@ -182,77 +188,81 @@ class IncrementalStream(BaseStream):
         updated_since = self.get_bookmark(state)
 
         # Set initial params
-        self.params.update({
-            "per_page": self.page_size,
-            "updated_since": updated_since,
-            "page": page_count
-        })
+        if self.tap_stream_id in [
+            "conversations",
+            "satisfaction_ratings",
+            "time_entries",
+        ]:
+            self.params = {"per_page": self.page_size, "page": page_count}
+        else:
+            self.params.update(
+                {
+                    "per_page": self.page_size,
+                    "updated_since": updated_since,
+                    "page": page_count,
+                }
+            )
 
         while True:
             LOGGER.info("Calling Page %s", page_count)
             response = self.client.get(
                 extraction_url, self.params, self.headers, self.path
             )
-            LOGGER.info("Response......................: %s", response)
             raw_records = response
-            # next_page = response.get(self.next_page_key)
 
             if not raw_records:
                 LOGGER.warning("No records found on Page %s", page_count)
                 break
-            # self.params[self.next_page_key] = next_page
-            # page_count += 1
             yield from raw_records
 
             if len(raw_records) == self.page_size:
                 LOGGER.info("Fetching Page %s", page_count)
                 page_count += 1
-                self.params["page"] = page_count    #added while testing contacts and companies stream INCREMENTAL
+                self.params["page"] = (
+                    page_count
+                )
             else:
                 break
-            # if not next_page:
-            #     break
 
     def sync(
-        self, state: Dict, schema: Dict, stream_metadata: Dict, transformer: Transformer
+        self,
+        state: Dict,
+        transformer: Transformer,
+        parent_obj: Dict = None,
     ) -> Dict:
-        bookmark_date = self.get_bookmark(state)
-        current_max_bookmark_date = bookmark_date_to_utc = strptime_to_utc(
-            bookmark_date
-        )
+        """Implementation for `type: Incremental` stream."""
+        current_max_bookmark_date = bookmark_date = self.get_bookmark(state)
+        self.url_endpoint = self.get_url_endpoint(parent_obj)
+
         with metrics.record_counter(self.tap_stream_id) as counter:
             for record in self.get_records(state):
-                if 'custom_fields' in record:
-                        record['custom_fields'] = self.transform_dict(record['custom_fields'], force_str=True)
+                if "custom_fields" in record:
+                    record["custom_fields"] = self.modify_object(
+                        record["custom_fields"], force_str=True
+                    )
                 transformed_record = transformer.transform(
-                    record, schema, stream_metadata
+                    record, self.schema, self.metadata
                 )
-                try:
-                    record_timestamp = strptime_to_utc(
-                        transformed_record[self.replication_keys[0]]
-                    )
-                except KeyError as _:
-                    LOGGER.error(
-                        "Unable to process Record, Exception occurred: %s for stream %s",
-                        _,
-                        self.__class__,
-                    )
-                    continue
-                if record_timestamp >= bookmark_date_to_utc:
+
+                record_timestamp = transformed_record[self.replication_keys[0]]
+                if record_timestamp >= bookmark_date:
                     write_record(self.tap_stream_id, transformed_record)
                     current_max_bookmark_date = max(
                         current_max_bookmark_date, record_timestamp
                     )
                     counter.increment()
 
-            state = self.write_bookmark(
-                state, value=strftime(current_max_bookmark_date)
-            )
+                    for child in self.child_to_sync:
+                        child.sync(
+                            state=state, transformer=transformer, parent_obj=record
+                        )
+
+            state = self.write_bookmark(state, value=current_max_bookmark_date)
             return counter.value
 
 
 class FullTableStream(BaseStream):
-    """Base Class for Incremental Stream."""
+    """Base Class for FULL_TABLE Stream."""
 
     replication_method = "FULL_TABLE"
     forced_replication_method = "FULL_TABLE"
@@ -261,14 +271,12 @@ class FullTableStream(BaseStream):
 
     total_records = 0
 
-    def sync(
-        self, state: Dict, schema: Dict, stream_metadata: Dict, transformer: Transformer
-    ) -> Dict:
+    def sync(self, state: Dict, transformer: Transformer) -> Dict:
         """Abstract implementation for `type: Fulltable` stream."""
         with metrics.record_counter(self.tap_stream_id) as counter:
             for record in self.get_records():
                 transformed_record = transformer.transform(
-                    record, schema, stream_metadata
+                    record, self.schema, self.metadata
                 )
                 write_record(self.tap_stream_id, transformed_record)
                 counter.increment()

@@ -8,6 +8,6 @@ from tap_freshdesk.streams.abstracts import FullTableStream
 LOGGER = get_logger()
 
 class Agents(FullTableStream):
-    tap_stream_id = 'agents'
-    key_properties = ['id']
-    path = 'agents'
+    tap_stream_id = "agents"
+    key_properties = ["id"]
+    path = "agents"

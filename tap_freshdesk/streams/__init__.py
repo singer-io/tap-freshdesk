@@ -9,13 +9,13 @@ from tap_freshdesk.streams.groups import Groups
 from tap_freshdesk.streams.roles import Roles
 
 STREAMS = {
-    'tickets': Tickets,
-    'conversations': Conversations,
-    'contacts': Contacts,
-    'companies': Companies,
-    'satisfaction_ratings': Satisfaction_ratings,
-    'time_entries': Time_entries,
-    'agents': Agents,
-    'groups': Groups,
-    'roles': Roles,
+    "tickets": Tickets,
+    "conversations": Conversations,
+    "contacts": Contacts,
+    "companies": Companies,
+    "satisfaction_ratings": Satisfaction_ratings,
+    "time_entries": Time_entries,
+    "agents": Agents,
+    "groups": Groups,
+    "roles": Roles,
 }
