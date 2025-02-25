@@ -28,8 +28,7 @@ class BaseStream(ABC):
 
     url_endpoint = ""
     path = ""
-    page_size = 100
-    next_page_key = ""
+    page_size = 10
     params = {}
     headers = {'Accept': 'application/json'}
 
@@ -91,13 +90,19 @@ class BaseStream(ABC):
     def __init__(self, client=None) -> None:
         self.client = client
 
-    def get_records(self, state: Dict) -> List:
+    def get_records(self) -> List:
         """Interacts with api client interaction and pagination."""
         extraction_url = self.url_endpoint
         page_count = 1
-        if self.page_size:
-            self.params.update({"per_page": self.page_size})
-            self.params.update({"page": 1})
+        # # Fetch the bookmark for incremental sync
+        # updated_since = self.get_bookmark(state)
+
+        # Set initial params
+        self.params.update({
+            "per_page": self.page_size,
+            # "updated_since": updated_since,
+            "page": page_count
+        })
 
         while True:
             LOGGER.info("Calling Page %s", page_count)
@@ -116,7 +121,9 @@ class BaseStream(ABC):
             yield from raw_records
 
             if len(raw_records) == self.page_size:
+                LOGGER.info("Fetching Page %s", page_count)
                 page_count += 1
+                self.params["page"] = page_count    #added while testing contacts and companies stream INCREMENTAL
             else:
                 break
             # if not next_page:
@@ -157,6 +164,55 @@ class IncrementalStream(BaseStream):
             state, self.tap_stream_id, key or self.replication_keys[0], value
         )
 
+    def transform_dict(self, d, key_key="name", value_key="value", force_str=False):
+        # Custom fields are expected to be strings, but sometimes the API sends
+        # booleans. We cast those to strings to match the schema.
+        rtn = []
+        for k, v in d.items():
+            if force_str:
+                v = str(v).lower()
+            rtn.append({key_key: k, value_key: v})
+        return rtn
+
+    def get_records(self, state: Dict) -> List:
+        """Interacts with api client interaction and pagination."""
+        extraction_url = self.url_endpoint
+        page_count = 1
+        # Fetch the bookmark for incremental sync
+        updated_since = self.get_bookmark(state)
+
+        # Set initial params
+        self.params.update({
+            "per_page": self.page_size,
+            "updated_since": updated_since,
+            "page": page_count
+        })
+
+        while True:
+            LOGGER.info("Calling Page %s", page_count)
+            response = self.client.get(
+                extraction_url, self.params, self.headers, self.path
+            )
+            LOGGER.info("Response......................: %s", response)
+            raw_records = response
+            # next_page = response.get(self.next_page_key)
+
+            if not raw_records:
+                LOGGER.warning("No records found on Page %s", page_count)
+                break
+            # self.params[self.next_page_key] = next_page
+            # page_count += 1
+            yield from raw_records
+
+            if len(raw_records) == self.page_size:
+                LOGGER.info("Fetching Page %s", page_count)
+                page_count += 1
+                self.params["page"] = page_count    #added while testing contacts and companies stream INCREMENTAL
+            else:
+                break
+            # if not next_page:
+            #     break
+
     def sync(
         self, state: Dict, schema: Dict, stream_metadata: Dict, transformer: Transformer
     ) -> Dict:
@@ -166,6 +222,8 @@ class IncrementalStream(BaseStream):
         )
         with metrics.record_counter(self.tap_stream_id) as counter:
             for record in self.get_records(state):
+                if 'custom_fields' in record:
+                        record['custom_fields'] = self.transform_dict(record['custom_fields'], force_str=True)
                 transformed_record = transformer.transform(
                     record, schema, stream_metadata
                 )

@@ -11,5 +11,4 @@ class Time_entries(IncrementalStream):
     tap_stream_id = 'time_entries'
     key_properties = ['id']
     replication_keys = ['updated_at']
-    path = 'time_entries'
-
+    path = 'tickets/{ticket_id}/time_entries'

@@ -11,5 +11,4 @@ class Satisfaction_ratings(IncrementalStream):
     tap_stream_id = 'satisfaction_ratings'
     key_properties = ['id']
     replication_keys = ['updated_at']
-    path = 'satisfaction_ratings'
-
+    path = 'tickets/{ticket_id}/satisfaction_ratings'

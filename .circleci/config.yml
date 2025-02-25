@@ -11,9 +11,9 @@ jobs:
       - run:
           name: 'Setup Virtual Env'
           command: |
-            python3 -m venv /usr/local/share/virtualenvs/tap-freshdesk
+            python3 -mvenv /usr/local/share/virtualenvs/tap-freshdesk
             source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
-            pip install -U pip setuptools
+            pip install -U 'pip==22.2.2' 'setuptools==65.3.0'
             pip install .[dev]
       - run:
           name: 'JSON Validator'
@@ -21,15 +21,31 @@ jobs:
             source /usr/local/share/virtualenvs/tap-tester/bin/activate
             stitch-validate-json tap_freshdesk/schemas/*.json
       - run:
+          name: 'pylint'
+          command: |
+            source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
+            pylint tap_freshdesk -d C,R,W
+      - add_ssh_keys
+      - run:
+          name: 'Unit Tests'
+          command: |
+            source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
+            pip install nose coverage
+            nosetests --with-coverage --cover-erase --cover-package=tap_freshdesk --cover-html-dir=htmlcov tests/unittests
+            coverage html
+      - store_test_results:
+          path: test_output/report.xml
+      - store_artifacts:
+          path: htmlcov
+      - run:
           name: 'Integration Tests'
           command: |
             aws s3 cp s3://com-stitchdata-dev-deployment-assets/environments/tap-tester/tap_tester_sandbox dev_env.sh
             source dev_env.sh
             source /usr/local/share/virtualenvs/tap-tester/bin/activate
             run-test --tap=tap-freshdesk tests
-          no_output_timeout: 35m
-      - slack/notify-on-failure:
-          only_for_branches: master
+
+
 workflows:
   version: 2
   commit:

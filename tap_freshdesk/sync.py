@@ -37,9 +37,9 @@ def sync(client: Client, config: Dict, catalog: singer.Catalog, state) -> None:
             stream_catalog = catalog.get_stream(stream_name)
             stream_schema = stream_catalog.schema.to_dict()
             stream_metadata =singer.metadata.to_map(stream_catalog.metadata)
-            
+
             stream.write_schema(stream_schema, stream_name)
-            
+
             LOGGER.info('START Syncing: {}'.format(stream_name))
             update_currently_syncing(state, stream_name)
             total_records = stream.sync(
