@@ -6,25 +6,25 @@ spec](https://github.com/singer-io/getting-started/blob/master/SPEC.md).
 
 This tap:
 
-- Pulls raw data from the [freshdesk API].
-- Extracts the following resources:
-    - Tickets(https://github.com/singer-io)
+- Pulls raw data from the [freshdesk API](https://developers.freshdesk.com/api/).
+- Extracts the following resources from Freshdesk::
+    - [Tickets](https://developers.freshdesk.com/api/#list_all_tickets)
 
-    - Conversations(https://github.com/singer-io)
+    - [Conversations](https://developers.freshdesk.com/api/#list_all_ticket_notes)
 
-    - Contacts(https://github.com/singer-io)
+    - [Contacts](https://developers.freshdesk.com/api/#list_all_contacts)
 
-    - Companies(https://github.com/singer-io)
+    - [Companies](https://developers.freshdesk.com/api/#list_all_companies)
 
-    - Satisfaction_ratings(https://github.com/singer-io)
+    - [Satisfaction Ratings](https://developers.freshdesk.com/api/#view_ticket_satisfaction_ratings)
 
-    - Time_entries(https://github.com/singer-io)
+    - [Time Entries](https://developers.freshdesk.com/api/#list_all_ticket_timeentries)
 
-    - Agents(https://github.com/singer-io)
+    - [Agents](https://developers.freshdesk.com/api/#list_all_agents)
 
-    - Groups(https://github.com/singer-io)
+    - [Groups](https://developers.freshdesk.com/api/#list_all_groups)
 
-    - Roles(https://github.com/singer-io)
+    - [Roles](https://developers.freshdesk.com/api/#list_all_roles)
 
 - Outputs the schema for each resource
 - Incrementally pulls data based on the input state
@@ -33,39 +33,39 @@ This tap:
 ## Streams
 
 
-** [tickets](https://github.com/singer-io)**
+**[tickets](https://developers.freshdesk.com/api/#list_all_tickets)**
 - Primary keys: ['id']
 - Replication strategy: INCREMENTAL
 
-** [conversations](https://github.com/singer-io)**
+**[conversations](https://developers.freshdesk.com/api/#list_all_ticket_notes)**
 - Primary keys: ['id']
 - Replication strategy: INCREMENTAL
 
-** [contacts](https://github.com/singer-io)**
+**[contacts](https://developers.freshdesk.com/api/#list_all_contacts)**
 - Primary keys: ['id']
 - Replication strategy: INCREMENTAL
 
-** [companies](https://github.com/singer-io)**
+**[companies](https://developers.freshdesk.com/api/#list_all_companies)**
 - Primary keys: ['id']
 - Replication strategy: INCREMENTAL
 
-** [satisfaction_ratings](https://github.com/singer-io)**
+**[satisfaction_ratings](https://developers.freshdesk.com/api/#view_ticket_satisfaction_ratings)**
 - Primary keys: ['id']
 - Replication strategy: INCREMENTAL
 
-** [time_entries](https://github.com/singer-io)**
+**[time_entries](https://developers.freshdesk.com/api/#list_all_ticket_timeentries)**
 - Primary keys: ['id']
 - Replication strategy: INCREMENTAL
 
-** [agents](https://github.com/singer-io)**
+**[agents](https://developers.freshdesk.com/api/#list_all_agents)**
 - Primary keys: ['id']
 - Replication strategy: FULL_TABLE
 
-** [groups](https://github.com/singer-io)**
+**[groups](https://developers.freshdesk.com/api/#list_all_groups)**
 - Primary keys: ['id']
 - Replication strategy: FULL_TABLE
 
-** [roles](https://github.com/singer-io)**
+**[roles](https://developers.freshdesk.com/api/#list_all_roles)**
 - Primary keys: ['id']
 - Replication strategy: FULL_TABLE
 
@@ -97,28 +97,26 @@ This tap:
     - [target-stitch](https://github.com/singer-io/target-stitch)
 
 3. Create your tap's `config.json` file.  The tap config file for this tap should include these entries:
-   - `start_date` - the default value to use if no bookmark exists for an endpoint (rfc3339 date string)
-   - `user_agent` (string, optional): Process and email for API logging purposes. Example: `tap-freshdesk <api_user_email@your_company.com>`
-   - `request_timeout` (integer, `300`): Max time for which request should wait to get a response. Default request_timeout is 300 seconds.
+    Create a JSON file called `config.json` containing the api token you just found and
+    the subdomain to your Freshdesk account. The subdomain will take the format
+    `subdomain.freshdesk.com`.
 
     ```json
     {
-        "start_date": "2019-01-01T00:00:00Z",
-        "user_agent": "tap-freshdesk <api_user_email@your_company.com>",
-        "request_timeout": 300,
-        "api_key": "abcde12345"
-        ...
+      "api_key": "your-api-token",
+      "domain": "subdomain",
+      "start_date": "2017-01-17T20:32:05Z"
     }
+    ```
     ```
     Optionally, also create a `state.json` file. `currently_syncing` is an optional attribute used for identifying the last object to be synced in case the job is interrupted mid-stream. The next run would begin where the last job left off.
 
     ```json
     {
-        "currently_syncing": "engage",
+        "currently_syncing": "agents",
         "bookmarks": {
-            "export": "2019-09-27T22:34:39.000000Z",
-            "funnels": "2019-09-28T15:30:26.000000Z",
-            "revenue": "2019-09-28T18:23:53Z"
+            "companies": "2019-09-27T22:34:39.000000Z",
+            "contacts": "2019-09-28T15:30:26.000000Z"
         }
     }
     ```
@@ -129,9 +127,9 @@ This tap:
     tap-freshdesk --config config.json --discover > catalog.json
     ```
    See the Singer docs on discovery mode
-   [here](https://github.com/singer-io/getting-started/blob/master/docs/DISCOVERY_MODE.md
+   [here](https://github.com/singer-io/getting-started/blob/master/docs/DISCOVERY_MODE.md)
 
-5. Run the Tap in Sync Mode (with catalog) and [write out to state file](https://github.com/singer-io/getting-started/blob/master/docs/RUNNING_AND_DEVELOPING.md
+5. Run the Tap in Sync Mode (with catalog) and [write out to state file](https://github.com/singer-io/getting-started/blob/master/docs/RUNNING_AND_DEVELOPING.md)
 
     For Sync mode:
     ```bash
@@ -150,7 +148,7 @@ This tap:
     ```
 
 6. Test the Tap
-    
+
     While developing the freshdesk tap, the following utilities were run in accordance with Singer.io best practices:
     Pylint to improve [code quality](https://github.com/singer-io/getting-started/blob/master/docs/BEST_PRACTICES.md
     ```bash
@@ -163,7 +161,7 @@ This tap:
 
     To [check the tap](https://github.com/singer-io/singer-tools
     ```bash
-    > tap-mixpanel --config tap_config.json --catalog catalog.json | singer-check-tap > state.json
+    > tap-freshdesk --config tap_config.json --catalog catalog.json | singer-check-tap > state.json
     > tail -1 state.json > state.json.tmp && mv state.json.tmp state.json
     ```
 

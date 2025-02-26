@@ -24,6 +24,7 @@ jobs:
           name: 'pylint'
           command: |
             source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
+            pip install pylint
             pylint tap_freshdesk -d C,R,W
       - add_ssh_keys
       - run:

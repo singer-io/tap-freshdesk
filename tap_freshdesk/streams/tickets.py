@@ -6,9 +6,6 @@ from singer import (
     metrics,
     write_record,
     write_bookmark,
-    get_currently_syncing,
-    set_currently_syncing,
-    write_state,
 )
 
 from tap_freshdesk.streams.abstracts import IncrementalStream
@@ -30,12 +27,15 @@ class Tickets(IncrementalStream):
             state, self.tap_stream_id, key or self.replication_keys[0], value
         )
 
-    def update_currently_syncing(state: Dict, stream_name: str) -> None:
-        if not stream_name and get_currently_syncing(state):
-            del state["currently_syncing"]
-        else:
-            set_currently_syncing(state, stream_name)
-        write_state(state)
+    def get_bookmark(self, state: dict, ticket_key, key: Any = None, default=None) -> int:
+        """A wrapper for singer.get_bookmark to deal with compatibility for
+        bookmark values or start values."""
+
+        tickets_bookmarks = state.get("bookmarks", {}).get(self.tap_stream_id, {})
+        try:
+            return tickets_bookmarks[ticket_key]
+        except KeyError:
+            return self.client.config.get(self.config_start_key, False)
 
     def sync(
         self,
@@ -44,7 +44,6 @@ class Tickets(IncrementalStream):
         parent_obj: Dict = None,
     ) -> Dict:
         """Implementation for `type: Incremental` stream."""
-        current_max_bookmark_date = bookmark_date = self.get_bookmark(state)
         self.url_endpoint = self.get_url_endpoint(parent_obj)
 
         # Set initial parameters for API call
@@ -60,10 +59,10 @@ class Tickets(IncrementalStream):
             filter_values = [{}, {"filter": "spam"}, {"filter": "deleted"}]
             for value in filter_values:
                 if value:
-                    key = self.tap_stream_id + "_" + value["filter"]
+                    ticket_key = self.tap_stream_id + "_" + value["filter"]
                 else:
-                    key = self.tap_stream_id  # Default key when value is None or empty
-                updated_since = self.get_bookmark(state, key=None)
+                    ticket_key = self.tap_stream_id  # Default key when value is None or empty
+                current_max_bookmark_date = bookmark_date = updated_since = self.get_bookmark(state, ticket_key)
                 self.params.update({"updated_since": updated_since})
                 self.params.update(**value)
                 for record in self.get_records(state):
@@ -88,5 +87,5 @@ class Tickets(IncrementalStream):
                                 state=state, transformer=transformer, parent_obj=record
                             )
 
-                state = self.write_bookmark(state, key, value=current_max_bookmark_date)
+                state = self.write_bookmark(state, ticket_key, value=current_max_bookmark_date)
             return counter.value

@@ -184,8 +184,6 @@ class IncrementalStream(BaseStream):
         """Interacts with api client interaction and pagination."""
         extraction_url = self.url_endpoint
         page_count = 1
-        # Fetch the bookmark for incremental sync
-        updated_since = self.get_bookmark(state)
 
         # Set initial params
         if self.tap_stream_id in [
@@ -194,7 +192,11 @@ class IncrementalStream(BaseStream):
             "time_entries",
         ]:
             self.params = {"per_page": self.page_size, "page": page_count}
+        elif self.tap_stream_id == "tickets":
+            self.params.update({"per_page": self.page_size, "page": page_count})
         else:
+            # Fetch the bookmark for incremental sync
+            updated_since = self.get_bookmark(state)
             self.params.update(
                 {
                     "per_page": self.page_size,
