@@ -6,7 +6,7 @@ from tap_freshdesk.streams.abstracts import IncrementalStream
 
 LOGGER = get_logger()
 
-class Satisfaction_ratings(IncrementalStream):
+class SatisfactionRatings(IncrementalStream):
     tap_stream_id = "satisfaction_ratings"
     key_properties = ["id"]
     replication_keys = ["updated_at"]

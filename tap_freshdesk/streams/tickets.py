@@ -69,7 +69,7 @@ class Tickets(IncrementalStream):
                 for record in self.get_records(state):
                     if "custom_fields" in record:
                         record["custom_fields"] = self.modify_object(
-                            record["custom_fields"], force_str=True
+                            record["custom_fields"], force_to_string=True
                         )
                     transformed_record = transformer.transform(
                         record, self.schema, self.metadata
