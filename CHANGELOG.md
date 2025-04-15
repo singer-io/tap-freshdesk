@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0
+  * Complete refactoring of the tap [#60](https://github.com/singer-io/tap-freshdesk/pull/60)
+  * Bump version of `requests` dependency to 2.32.3
+  * singer-python upgrade to 6.1.0
+  * Implements `agents`, `groups` and `roles` as FULL_TABLE, instead of, INCREMENTAL
+  * API endpoint changes for `conversations`, `satisfaction_ratings` and `time_entries`
+
 ## 0.11.1
   * Dependabot update [#56](https://github.com/singer-io/tap-freshdesk/pull/56)
 
