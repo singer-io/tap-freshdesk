@@ -2,7 +2,7 @@
 
 This is a [Singer](https://singer.io) tap that produces JSON-formatted data
 following the [Singer
-spec](https://github.com/singer-io/getting-started/blob/master/SPEC.md).
+spec](https://github.com/singer-io/getting-started/blob/master/docs/SPEC.md).
 
 This tap:
 
@@ -150,7 +150,7 @@ This tap:
 6. Test the Tap
 
     While developing the freshdesk tap, the following utilities were run in accordance with Singer.io best practices:
-    Pylint to improve [code quality](https://github.com/singer-io/getting-started/blob/master/docs/BEST_PRACTICES.md
+    Pylint to improve [code quality](https://github.com/singer-io/getting-started/blob/master/docs/BEST_PRACTICES.md)
     ```bash
     > pylint tap_freshdesk -d missing-docstring -d logging-format-interpolation -d too-many-locals -d too-many-arguments
     ```
@@ -159,7 +159,7 @@ This tap:
     Your code has been rated at 9.67/10
     ```
 
-    To [check the tap](https://github.com/singer-io/singer-tools
+    To [check the tap](https://github.com/singer-io/singer-tools)
     ```bash
     > tap-freshdesk --config tap_config.json --catalog catalog.json | singer-check-tap > state.json
     > tail -1 state.json > state.json.tmp && mv state.json.tmp state.json

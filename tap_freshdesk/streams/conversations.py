@@ -6,13 +6,13 @@ from tap_freshdesk.streams.abstracts import IncrementalStream
 
 LOGGER = get_logger()
 
+
 class Conversations(IncrementalStream):
     tap_stream_id = "conversations"
     key_properties = ["id"]
     replication_keys = ["updated_at"]
     path = "tickets/{}/conversations"
     parent = "tickets"
-
 
     def get_url_endpoint(self, parent_obj=None):
         return f"{self.client.base_url}/{self.path.format(parent_obj['id'])}"

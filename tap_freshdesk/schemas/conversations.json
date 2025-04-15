@@ -2,28 +2,52 @@
     "type": "object",
     "properties": {
         "body_text": {
-            "type": ["null", "string"]
+            "type": [
+                "null",
+                "string"
+            ]
         },
         "id": {
-            "type": ["null", "integer"]
+            "type": [
+                "null",
+                "integer"
+            ]
         },
         "incoming": {
-            "type": ["null", "boolean"]
+            "type": [
+                "null",
+                "boolean"
+            ]
         },
         "private": {
-            "type": ["null", "boolean"]
+            "type": [
+                "null",
+                "boolean"
+            ]
         },
         "user_id": {
-            "type": ["null", "integer"]
+            "type": [
+                "null",
+                "integer"
+            ]
         },
         "support_email": {
-            "type": ["null", "string"]
+            "type": [
+                "null",
+                "string"
+            ]
         },
         "source": {
-            "type": ["null", "integer"]
+            "type": [
+                "null",
+                "integer"
+            ]
         },
         "ticket_id": {
-            "type": ["null", "integer"]
+            "type": [
+                "null",
+                "integer"
+            ]
         },
         "to_emails": {
             "anyOf": [
@@ -39,7 +63,10 @@
             ]
         },
         "from_email": {
-            "type": ["null", "string"]
+            "type": [
+                "null",
+                "string"
+            ]
         },
         "cc_emails": {
             "anyOf": [

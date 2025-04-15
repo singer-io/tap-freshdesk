@@ -7,9 +7,9 @@ from tap_freshdesk.streams.abstracts import IncrementalStream
 
 LOGGER = get_logger()
 
+
 class Contacts(IncrementalStream):
     tap_stream_id = "contacts"
     key_properties = ["id"]
     replication_keys = ["updated_at"]
     path = "contacts"
-

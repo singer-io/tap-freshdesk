@@ -27,7 +27,9 @@ class Tickets(IncrementalStream):
             state, self.tap_stream_id, key or self.replication_keys[0], value
         )
 
-    def get_bookmark(self, state: dict, ticket_key, key: Any = None, default=None) -> int:
+    def get_bookmark(
+        self, state: dict, ticket_key, key: Any = None, default=None
+    ) -> int:
         """A wrapper for singer.get_bookmark to deal with compatibility for
         bookmark values or start values."""
 
@@ -61,8 +63,12 @@ class Tickets(IncrementalStream):
                 if value:
                     ticket_key = self.tap_stream_id + "_" + value["filter"]
                 else:
-                    ticket_key = self.tap_stream_id  # Default key when value is None or empty
-                current_max_bookmark_date = bookmark_date = updated_since = self.get_bookmark(state, ticket_key)
+                    ticket_key = (
+                        self.tap_stream_id
+                    )  # Default key when value is None or empty
+                current_max_bookmark_date = bookmark_date = updated_since = (
+                    self.get_bookmark(state, ticket_key)
+                )
                 self.params.update({"updated_since": updated_since})
                 self.params.update(**value)
                 for record in self.get_records(state):
@@ -87,5 +93,7 @@ class Tickets(IncrementalStream):
                                 state=state, transformer=transformer, parent_obj=record
                             )
 
-                state = self.write_bookmark(state, ticket_key, value=current_max_bookmark_date)
+                state = self.write_bookmark(
+                    state, ticket_key, value=current_max_bookmark_date
+                )
             return counter.value

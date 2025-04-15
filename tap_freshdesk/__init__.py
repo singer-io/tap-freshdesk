@@ -9,6 +9,7 @@ LOGGER = singer.get_logger()
 
 REQUIRED_CONFIG_KEYS = ["api_key", "domain", "start_date", "user_agent"]
 
+
 def do_discover():
 
     LOGGER.info("Starting discover")
@@ -29,10 +30,13 @@ def main():
         if parsed_args.discover:
             do_discover()
         elif parsed_args.catalog:
-            sync(client=client,
-                    config=parsed_args.config,
-                    catalog=parsed_args.catalog,
-                    state=state)
+            sync(
+                client=client,
+                config=parsed_args.config,
+                catalog=parsed_args.catalog,
+                state=state,
+            )
+
 
 if __name__ == "__main__":
     main()

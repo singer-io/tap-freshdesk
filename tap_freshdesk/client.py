@@ -6,10 +6,15 @@ from requests import session
 from requests.exceptions import Timeout, ConnectionError, ChunkedEncodingError
 from singer import get_logger, metrics
 
-from tap_freshdesk.exceptions import ERROR_CODE_EXCEPTION_MAPPING, freshdeskError, freshdeskBackoffError
+from tap_freshdesk.exceptions import (
+    ERROR_CODE_EXCEPTION_MAPPING,
+    freshdeskError,
+    freshdeskBackoffError,
+)
 
 LOGGER = get_logger()
 REQUEST_TIMEOUT = 300
+
 
 def raise_for_error(response: requests.Response) -> None:
     """Raises the associated response exception. Takes in a response object,
@@ -24,19 +29,24 @@ def raise_for_error(response: requests.Response) -> None:
         response_json = {}
     if response.status_code != 200:
         if response_json.get("error"):
-            message = "HTTP-error-code: {}, Error: {}".format(response.status_code, response_json.get("error"))
+            message = f"HTTP-error-code: {response.status_code}, Error: {response_json.get('error')}"
         else:
-            message = "HTTP-error-code: {}, Error: {}".format(
-                response.status_code,
-                response_json.get("message", ERROR_CODE_EXCEPTION_MAPPING.get(
-                    response.status_code, {}).get("message", "Unknown Error")))
-        exc = ERROR_CODE_EXCEPTION_MAPPING.get(
-            response.status_code, {}).get("raise_exception", freshdeskError)
+            error_message = response_json.get(
+                "message",
+                ERROR_CODE_EXCEPTION_MAPPING.get(response.status_code, {}).get(
+                    "message", "Unknown Error"
+                ),
+            )
+            message = f"HTTP-error-code: {response.status_code}, Error: {error_message}"
+
+        exc = ERROR_CODE_EXCEPTION_MAPPING.get(response.status_code, {}).get(
+            "raise_exception", freshdeskError
+        )
         raise exc(message, response) from None
 
+
 class Client:
-    """
-    A Wrapper class.
+    """A Wrapper class.
     ~~~
     Performs:
      - Authentication
@@ -50,12 +60,10 @@ class Client:
         domain = config.get("domain")
         self.base_url = f"https://{domain}.freshdesk.com/api/v2"
 
-
         config_request_timeout = config.get("request_timeout")
-        if config_request_timeout and float(config_request_timeout):
-            self.request_timeout = float(config_request_timeout)
-        else:
-            self.request_timeout = REQUEST_TIMEOUT
+        self.request_timeout = (
+            float(config_request_timeout) if config_request_timeout else REQUEST_TIMEOUT
+        )
 
     def __enter__(self):
         self.check_api_credentials()
@@ -70,12 +78,27 @@ class Client:
     def get(self, endpoint: str, params: Dict, headers: Dict, path: str = None) -> Any:
         """Calls the make_request method with a prefixed method type `GET`"""
         endpoint = endpoint or f"{self.base_url}/{path}"
-        return self.__make_request("GET", endpoint, headers=headers, params=params, auth=(self.config["api_key"], ""), timeout=self.request_timeout)
+        return self.__make_request(
+            "GET",
+            endpoint,
+            headers=headers,
+            params=params,
+            auth=(self.config["api_key"], ""),
+            timeout=self.request_timeout,
+        )
 
-    def post(self, endpoint: str, params: Dict, headers: Dict, body: Dict, path: str = None) -> Any:
+    def post(
+        self, endpoint: str, params: Dict, headers: Dict, body: Dict, path: str = None
+    ) -> Any:
         """Calls the make_request method with a prefixed method type `POST`"""
-        self.__make_request("POST", endpoint, headers=headers, params=params, data=body, timeout=self.request_timeout)
-
+        self.__make_request(
+            "POST",
+            endpoint,
+            headers=headers,
+            params=params,
+            data=body,
+            timeout=self.request_timeout,
+        )
 
     @backoff.on_exception(
         wait_gen=backoff.expo,
@@ -84,14 +107,15 @@ class Client:
             ConnectionError,
             ChunkedEncodingError,
             Timeout,
-            freshdeskBackoffError
+            freshdeskBackoffError,
         ),
         max_tries=5,
         factor=2,
     )
-    def __make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Mapping[Any, Any]]:
-        """
-        Performs HTTP Operations
+    def __make_request(
+        self, method: str, endpoint: str, **kwargs
+    ) -> Optional[Mapping[Any, Any]]:
+        """Performs HTTP Operations
         Args:
             method (str): represents the state file for the tap.
             endpoint (str): url of the resource that needs to be fetched

@@ -2,15 +2,27 @@
   "type": "object",
   "properties": {
     "custom_fields": {
-      "type": ["null", "array"],
+      "type": [
+        "null",
+        "array"
+      ],
       "items": {
-        "type": ["null", "object"],
+        "type": [
+          "null",
+          "object"
+        ],
         "properties": {
           "name": {
-            "type": ["null", "string"]
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "value": {
-            "type": ["null", "string"]
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       }
@@ -275,8 +287,8 @@
         },
         "id": {
           "type": [
-          "null",
-          "integer"
+            "null",
+            "integer"
           ]
         },
         "mobile": {

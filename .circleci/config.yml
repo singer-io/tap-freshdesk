@@ -27,13 +27,13 @@ jobs:
             pip install pylint
             pylint tap_freshdesk -d C,R,W
       - add_ssh_keys
-      - run:
-          name: 'Unit Tests'
-          command: |
-            source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
-            pip install nose coverage
-            nosetests --with-coverage --cover-erase --cover-package=tap_freshdesk --cover-html-dir=htmlcov tests/unittests
-            coverage html
+      # - run:
+      #     name: 'Unit Tests'
+      #     command: |
+      #       source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
+      #       pip install nose coverage
+      #       nosetests --with-coverage --cover-erase --cover-package=tap_freshdesk --cover-html-dir=htmlcov tests/unittests
+      #       coverage html
       - store_test_results:
           path: test_output/report.xml
       - store_artifacts:

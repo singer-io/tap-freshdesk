@@ -7,6 +7,7 @@ from tap_freshdesk.streams.abstracts import FullTableStream
 
 LOGGER = get_logger()
 
+
 class Groups(FullTableStream):
     tap_stream_id = "groups"
     key_properties = ["id"]

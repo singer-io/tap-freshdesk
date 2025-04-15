@@ -58,15 +58,27 @@
       ]
     },
     "ratings": {
-      "type": ["null", "array"],
+      "type": [
+        "null",
+        "array"
+      ],
       "items": {
-        "type": ["null", "object"],
+        "type": [
+          "null",
+          "object"
+        ],
         "properties": {
           "question": {
-            "type": ["null", "string"]
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "value": {
-            "type": ["null", "integer"]
+            "type": [
+              "null",
+              "integer"
+            ]
           }
         }
       }

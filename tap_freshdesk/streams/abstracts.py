@@ -16,8 +16,7 @@ LOGGER = get_logger()
 
 
 class BaseStream(ABC):
-    """
-    A Base Class providing structure and boilerplate for generic streams
+    """A Base Class providing structure and boilerplate for generic streams
     and required attributes for any kind of stream
     ~~~
     Provides:
@@ -83,8 +82,7 @@ class BaseStream(ABC):
         transformer: Transformer,
         parent_obj: Dict = None,
     ) -> Dict:
-        """
-        Performs a replication sync for the stream.
+        """Performs a replication sync for the stream.
         ~~~
         Args:
          - state (dict): represents the state file for the tap.
@@ -126,9 +124,7 @@ class BaseStream(ABC):
                 break
 
     def write_schema(self):
-        """
-        Write a schema message.
-        """
+        """Write a schema message."""
         try:
             write_schema(self.tap_stream_id, self.schema, self.key_properties)
         except OSError as err:
@@ -150,9 +146,7 @@ class BaseStream(ABC):
         return result
 
     def get_url_endpoint(self, parent_obj: Dict = None) -> str:
-        """
-        Get the URL endpoint for the stream
-        """
+        """Get the URL endpoint for the stream"""
         return self.url_endpoint
 
 
@@ -220,9 +214,7 @@ class IncrementalStream(BaseStream):
             if len(raw_records) == self.page_size:
                 LOGGER.info("Fetching Page %s", page_count)
                 page_count += 1
-                self.params["page"] = (
-                    page_count
-                )
+                self.params["page"] = page_count
             else:
                 break
 

@@ -7,22 +7,23 @@ from tap_freshdesk.streams import STREAMS
 
 LOGGER = singer.get_logger()
 
+
 def get_abs_path(path: str) -> str:
-    """
-    Get the absolute path for the schema files.
-    """
+    """Get the absolute path for the schema files."""
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), path)
 
+
 def load_schema_references() -> Dict:
-    """
-    Load the schema files from the schema folder and return the schema references.
-    """
+    """Load the schema files from the schema folder and return the schema references."""
     shared_schema_path = get_abs_path("schemas/shared")
 
     shared_file_names = []
     if os.path.exists(shared_schema_path):
-        shared_file_names = [f for f in os.listdir(shared_schema_path)
-                            if os.path.isfile(os.path.join(shared_schema_path, f))]
+        shared_file_names = [
+            f
+            for f in os.listdir(shared_schema_path)
+            if os.path.isfile(os.path.join(shared_schema_path, f))
+        ]
 
     refs = {}
     for shared_schema_file in shared_file_names:
@@ -31,9 +32,10 @@ def load_schema_references() -> Dict:
 
     return refs
 
+
 def get_schemas() -> Tuple[Dict, Dict]:
-    """
-    Load the schema references, prepare metadata for each streams and return schema and metadata for the catalog.
+    """Load the schema references,
+    prepare metadata for each streams and return schema and metadata for the catalog.
     """
     schemas = {}
     field_metadata = {}
@@ -49,18 +51,19 @@ def get_schemas() -> Tuple[Dict, Dict]:
 
         mdata = metadata.new()
         mdata = metadata.get_standard_metadata(
-                schema=schema,
-                key_properties = getattr(stream_obj, "key_properties"),
-                valid_replication_keys = (getattr(stream_obj, "replication_keys") or []),
-                replication_method = getattr(stream_obj, "replication_method")
-            )
+            schema=schema,
+            key_properties=getattr(stream_obj, "key_properties"),
+            valid_replication_keys=(getattr(stream_obj, "replication_keys") or []),
+            replication_method=getattr(stream_obj, "replication_method"),
+        )
         mdata = metadata.to_map(mdata)
-
 
         automatic_keys = getattr(stream_obj, "replication_keys") or []
         for field_name in schema["properties"].keys():
             if field_name in automatic_keys:
-                mdata = metadata.write(mdata, ("properties", field_name), "inclusion", "automatic")
+                mdata = metadata.write(
+                    mdata, ("properties", field_name), "inclusion", "automatic"
+                )
 
         mdata = metadata.to_list(mdata)
         field_metadata[stream_name] = mdata
