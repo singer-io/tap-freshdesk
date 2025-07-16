@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple, List
 
 from singer import (
+    metadata,
     Transformer,
     get_bookmark,
     get_logger,
@@ -32,10 +33,11 @@ class BaseStream(ABC):
     children = []
     parent = ""
 
-    def __init__(self, client=None, schema=None, metadata=None) -> None:
+    def __init__(self, client=None, catalog=None) -> None:
         self.client = client
-        self.schema = schema
-        self.metadata = metadata
+        self.catalog = catalog
+        self.schema = catalog.schema.to_dict()
+        self.metadata = metadata.to_map(catalog.metadata)
         self.child_to_sync = []
         self.params = {}
 
@@ -74,6 +76,9 @@ class BaseStream(ABC):
         """Indicates if a node in the schema should be replicated, if a user
         has not expressed any opinion on whether or not to replicate it."""
         return False
+
+    def is_selected(self):
+        return metadata.get(self.metadata, (), "selected")
 
     @abstractmethod
     def sync(
@@ -275,3 +280,43 @@ class FullTableStream(BaseStream):
                 write_record(self.tap_stream_id, transformed_record)
                 counter.increment()
             return counter.value
+
+class ParentBaseStream(IncrementalStream):
+    """Base Class for Parent Stream."""
+
+    def get_bookmark(self, state: Dict, stream: str, key: Any = None) -> int:
+        """A wrapper for singer.get_bookmark to deal with compatibility for
+        bookmark values or start values."""
+
+        min_parent_bookmark = (
+            super().get_bookmark(state, stream) if self.is_selected() else None
+        )
+        for child in self.child_to_sync:
+            bookmark_key = f"{self.tap_stream_id}_{self.replication_keys[0]}"
+            child_bookmark = super().get_bookmark(
+                state, child.tap_stream_id, key=bookmark_key
+            )
+            min_parent_bookmark = (
+                min(min_parent_bookmark, child_bookmark)
+                if min_parent_bookmark
+                else child_bookmark
+            )
+
+        return min_parent_bookmark
+
+    def write_bookmark(
+        self, state: Dict, stream: str, key: Any = None, value: Any = None
+    ) -> Dict:
+        """A wrapper for singer.get_bookmark to deal with compatibility for
+        bookmark values or start values."""
+        if self.is_selected():
+            super().write_bookmark(state, stream, value=value)
+
+        for child in self.child_to_sync:
+            bookmark_key = f"{self.tap_stream_id}_{self.replication_keys[0]}"
+            super().write_bookmark(
+                state, child.tap_stream_id, key=bookmark_key, value=value
+            )
+
+        return state
+

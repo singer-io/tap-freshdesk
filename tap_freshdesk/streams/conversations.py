@@ -2,12 +2,12 @@ from typing import Any, Dict
 
 from singer import get_logger, write_bookmark
 
-from tap_freshdesk.streams.abstracts import IncrementalStream
+from tap_freshdesk.streams.tickets import Tickets
 
 LOGGER = get_logger()
 
 
-class Conversations(IncrementalStream):
+class Conversations(Tickets):
     tap_stream_id = "conversations"
     key_properties = ["id"]
     replication_keys = ["updated_at"]
@@ -21,3 +21,11 @@ class Conversations(IncrementalStream):
         """A wrapper for singer.get_bookmark to deal with compatibility for
         bookmark values or start values."""
         pass
+
+    def get_bookmark(self, state: Dict, stream: str, key: Any = None) -> int:
+        """Singleton bookmark value for child streams."""
+        if not self.bookmark_value:
+            # Set bookmark value as singleton
+            self.bookmark_value = super().get_bookmark(state, stream)
+
+        return self.bookmark_value

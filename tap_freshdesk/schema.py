@@ -34,15 +34,14 @@ def load_schema_references() -> Dict:
 
 
 def get_schemas() -> Tuple[Dict, Dict]:
-    """Load the schema references,
-    prepare metadata for each streams and return schema and metadata for the catalog.
-    """
+    """Load the schema references, prepare metadata for each streams and return
+    schema and metadata for the catalog."""
     schemas = {}
     field_metadata = {}
 
     refs = load_schema_references()
     for stream_name, stream_obj in STREAMS.items():
-        schema_path = get_abs_path("schemas/{}.json".format(stream_name))
+        schema_path = get_abs_path(f"schemas/{stream_name}.json")
         with open(schema_path) as file:
             schema = json.load(file)
 
@@ -69,3 +68,15 @@ def get_schemas() -> Tuple[Dict, Dict]:
         field_metadata[stream_name] = mdata
 
     return schemas, field_metadata
+
+def write_schema(stream, client, streams_to_sync, catalog) -> None:
+    """Collect nested child streams to sync and write schema for selected
+    streams."""
+    if stream.is_selected():
+        stream.write_schema()
+
+    for child in stream.children:
+        child_obj = STREAMS[child](client, catalog.get_stream(child))
+        write_schema(child_obj, client, streams_to_sync, catalog)
+        if child in streams_to_sync:
+            stream.child_to_sync.append(child_obj)
