@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple, List
+import copy
 
 from singer import (
     metadata,
@@ -30,6 +31,7 @@ class BaseStream(ABC):
     path = ""
     page_size = 10
     headers = {"Accept": "application/json"}
+    object_to_id = []
     children = []
     parent = ""
 
@@ -138,7 +140,22 @@ class BaseStream(ABC):
             )
             raise err
 
-    def modify_object(
+    def add_object_to_id(self, record: Dict) -> Dict:
+        """Add object_to_id to the stream."""
+        for key in self.object_to_id:
+            if record[key] is not None:
+                record[key + "_id"] = record[key]["id"]
+            else:
+                record[key + "_id"] = None
+
+        return record
+
+    def modify_object(self, record: Dict, parent_record: Dict = None) -> Dict:
+        """Modify the record before writing to the stream."""
+        record = self.add_object_to_id(record)
+        return record
+
+    def modify_object_custom_fields(
         self, data, key_field="name", value_field="value", force_to_string=False
     ):
         # Custom fields are expected to be strings, but sometimes the API sends
@@ -162,22 +179,30 @@ class IncrementalStream(BaseStream):
     forced_replication_method = "INCREMENTAL"
     config_start_key = "start_date"
 
-    def get_bookmark(self, state: dict, key: Any = None) -> int:
+    def get_bookmark(self, state: dict, stream: str, key: Any = None) -> int:
         """A wrapper for singer.get_bookmark to deal with compatibility for
         bookmark values or start values."""
         return get_bookmark(
             state,
-            self.tap_stream_id,
+            stream,
             key or self.replication_keys[0],
             self.client.config.get(self.config_start_key, False),
         )
 
-    def write_bookmark(self, state: dict, key: Any = None, value: Any = None) -> Dict:
+    def write_bookmark(self, state: dict, stream: str, key: Any = None, value: Any = None) -> Dict:
         """A wrapper for singer.get_bookmark to deal with compatibility for
         bookmark values or start values."""
-        return write_bookmark(
-            state, self.tap_stream_id, key or self.replication_keys[0], value
+        if not (key or self.replication_keys):
+            return state
+
+        current_bookmark = get_bookmark(
+            state,
+            stream,
+            key or self.replication_keys[0],
+            self.client.config["start_date"],
         )
+        value = max(current_bookmark, value)
+        return write_bookmark(state, stream, key or self.replication_keys[0], value)
 
     def get_records(self, state: Dict) -> List:
         """Interacts with api client interaction and pagination."""
@@ -195,7 +220,7 @@ class IncrementalStream(BaseStream):
             self.params.update({"per_page": self.page_size, "page": page_count})
         else:
             # Fetch the bookmark for incremental sync
-            updated_since = self.get_bookmark(state)
+            updated_since = self.get_bookmark(state, self.tap_stream_id)
             self.params.update(
                 {
                     "per_page": self.page_size,
@@ -230,17 +255,19 @@ class IncrementalStream(BaseStream):
         parent_obj: Dict = None,
     ) -> Dict:
         """Implementation for `type: Incremental` stream."""
-        current_max_bookmark_date = bookmark_date = self.get_bookmark(state)
+        bookmark_date = self.get_bookmark(state, self.tap_stream_id)
+        current_max_bookmark_date = bookmark_date
         self.url_endpoint = self.get_url_endpoint(parent_obj)
 
         with metrics.record_counter(self.tap_stream_id) as counter:
             for record in self.get_records(state):
+                record = self.modify_object(record, parent_obj)
                 if "custom_fields" in record:
-                    record["custom_fields"] = self.modify_object(
+                    record["custom_fields"] = self.modify_object_custom_fields(
                         record["custom_fields"], force_to_string=True
                     )
                 transformed_record = transformer.transform(
-                    record, self.schema, self.metadata
+                    copy.deepcopy(record), self.schema, self.metadata
                 )
 
                 record_timestamp = transformed_record[self.replication_keys[0]]
@@ -256,7 +283,7 @@ class IncrementalStream(BaseStream):
                             state=state, transformer=transformer, parent_obj=record
                         )
 
-            state = self.write_bookmark(state, value=current_max_bookmark_date)
+            state = self.write_bookmark(state, self.tap_stream_id, value=current_max_bookmark_date)
             return counter.value
 
 
@@ -320,3 +347,18 @@ class ParentBaseStream(IncrementalStream):
 
         return state
 
+
+class ChildBaseStream(IncrementalStream):
+    """Base Class for Child Stream."""
+
+    def get_url_endpoint(self, parent_obj=None):
+        """Prepare URL endpoint for child streams."""
+        return f"{self.client.base_url}/{self.path.format(parent_obj['id'])}"
+
+    def get_bookmark(self, state: Dict, stream: str, key: Any = None) -> int:
+        """Singleton bookmark value for child streams."""
+        if not self.bookmark_value:
+            # Set bookmark value as singleton
+            self.bookmark_value = super().get_bookmark(state, stream)
+
+        return self.bookmark_value
