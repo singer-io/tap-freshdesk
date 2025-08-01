@@ -11,7 +11,7 @@ jobs:
       - run:
           name: 'Setup Virtual Env'
           command: |
-            uv venv --python 3.9v /usr/local/share/virtualenvs/tap-freshdesk
+            uv venv --python 3.9 /usr/local/share/virtualenvs/tap-freshdesk
             source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
             uv pip install -U pip setuptools
             uv pip install .[dev]
