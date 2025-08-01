@@ -5,16 +5,16 @@ orbs:
 jobs:
   build:
     docker:
-      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/circle-ci:stitch-tap-tester
+      - image: 218546966473.dkr.ecr.us-east-1.amazonaws.com/circle-ci:stitch-tap-tester-uv
     steps:
       - checkout
       - run:
           name: 'Setup Virtual Env'
           command: |
-            python3 -m venv /usr/local/share/virtualenvs/tap-freshdesk
+            uv venv --python 3.9v /usr/local/share/virtualenvs/tap-freshdesk
             source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
-            pip install -U pip setuptools
-            pip install .[dev]
+            uv pip install -U pip setuptools
+            uv pip install .[dev]
       - run:
           name: 'JSON Validator'
           command: |
@@ -23,9 +23,10 @@ jobs:
       - run:
           name: 'Integration Tests'
           command: |
+            source /usr/local/share/virtualenvs/tap-tester/bin/activate
+            uv pip install --upgrade awscli
             aws s3 cp s3://com-stitchdata-dev-deployment-assets/environments/tap-tester/tap_tester_sandbox dev_env.sh
             source dev_env.sh
-            source /usr/local/share/virtualenvs/tap-tester/bin/activate
             run-test --tap=tap-freshdesk tests
           no_output_timeout: 35m
       - slack/notify-on-failure:
