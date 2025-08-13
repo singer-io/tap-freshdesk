@@ -1,5 +1,6 @@
 import singer
 from typing import Dict
+from tap_freshdesk.schema import write_schema
 from tap_freshdesk.streams import STREAMS
 from tap_freshdesk.client import Client
 
@@ -32,35 +33,26 @@ def collect_child_to_sync(stream, client, selected_streams, catalog) -> None:
 def sync(client: Client, config: Dict, catalog: singer.Catalog, state) -> None:
     """Sync selected streams from catalog"""
 
-    selected_streams = []
+    streams_to_sync = []
     for stream in catalog.get_selected_streams(state):
-        selected_streams.append(stream.stream)
-    LOGGER.info("selected_streams: {}".format(selected_streams))
+        streams_to_sync.append(stream.stream)
+    LOGGER.info(f"selected_streams: {streams_to_sync}")
 
     last_stream = singer.get_currently_syncing(state)
-    LOGGER.info("last/currently syncing stream: {}".format(last_stream))
+    LOGGER.info(f"last/currently syncing stream: {last_stream}")
 
     with singer.Transformer() as transformer:
-        for stream_name in selected_streams:
-
-            stream_catalog = catalog.get_stream(stream_name)
-            stream_schema = stream_catalog.schema.to_dict()
-            stream_metadata = singer.metadata.to_map(stream_catalog.metadata)
-            stream = STREAMS[stream_name](client, stream_schema, stream_metadata)
+        for stream_name in streams_to_sync:
+            stream = STREAMS[stream_name](client, catalog.get_stream(stream_name))
             if stream.parent:
-                # Skip child stream if parent stream is not selected
+                if stream.parent not in streams_to_sync:
+                    streams_to_sync.append(stream.parent)
                 continue
 
-            stream.write_schema()
-            collect_child_to_sync(stream, client, selected_streams, catalog)
-
-            LOGGER.info("START Syncing: {}".format(stream_name))
+            write_schema(stream, client, streams_to_sync, catalog)
+            LOGGER.info(f"START Syncing: {stream_name}")
             update_currently_syncing(state, stream_name)
             total_records = stream.sync(state=state, transformer=transformer)
 
             update_currently_syncing(state, None)
-            LOGGER.info(
-                "FINISHED Syncing: {}, total_records: {}".format(
-                    stream_name, total_records
-                )
-            )
+            LOGGER.info(f"FINISHED Syncing: {stream_name}, total_records: {total_records}")
