@@ -36,7 +36,7 @@ def sync(client: Client, config: Dict, catalog: singer.Catalog, state) -> None:
     streams_to_sync = []
     for stream in catalog.get_selected_streams(state):
         streams_to_sync.append(stream.stream)
-    LOGGER.info("selected_streams: {streams_to_sync}")
+    LOGGER.info(f"selected_streams: {streams_to_sync}")
 
     last_stream = singer.get_currently_syncing(state)
     LOGGER.info(f"last/currently syncing stream: {last_stream}")

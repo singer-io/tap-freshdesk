@@ -9,6 +9,10 @@ LOGGER = singer.get_logger()
 
 REQUIRED_CONFIG_KEYS = ["api_key", "domain", "start_date", "user_agent"]
 
+# from debugpy import listen, wait_for_client
+# listen(8000)
+# LOGGER.info("Press F5")
+# wait_for_client()
 
 def do_discover():
 
