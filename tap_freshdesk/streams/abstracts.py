@@ -29,7 +29,7 @@ class BaseStream(ABC):
 
     url_endpoint = ""
     path = ""
-    page_size = 10
+    page_size = 100
     headers = {"Accept": "application/json"}
     object_to_id = []
     children = []
