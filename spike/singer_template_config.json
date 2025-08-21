@@ -1,0 +1,113 @@
+{
+  "tap_name": "freshdesk",
+  "required_config_keys": [
+    "api_key",
+    "domain",
+    "start_date",
+    "user_agent"
+  ],
+  "page_size": 30,
+  "headers": {
+    "Accept": "application/json"
+  },
+  "params": {},
+  "base_url": "https://{domain}.freshdesk.com/api/v2",
+  "streams": [
+    {
+      "name": "tickets",
+      "key_properties": [
+        "id"
+      ],
+      "replication_method": "INCREMENTAL",
+      "replication_keys": [
+        "updated_at"
+      ],
+      "path": "tickets"
+    },
+    {
+      "name": "conversations",
+      "key_properties": [
+        "id"
+      ],
+      "replication_method": "INCREMENTAL",
+      "replication_keys": [
+        "updated_at"
+      ],
+      "path": "tickets/{}/conversations"
+    },
+    {
+      "name": "contacts",
+      "key_properties": [
+        "id"
+      ],
+      "replication_method": "INCREMENTAL",
+      "replication_keys": [
+        "updated_at"
+      ],
+      "path": "contacts"
+    },
+    {
+      "name": "companies",
+      "key_properties": [
+        "id"
+      ],
+      "replication_method": "INCREMENTAL",
+      "replication_keys": [
+        "updated_at"
+      ],
+      "path": "companies"
+    },
+    {
+      "name": "satisfaction_ratings",
+      "key_properties": [
+        "id"
+      ],
+      "replication_method": "INCREMENTAL",
+      "replication_keys": [
+        "updated_at"
+      ],
+      "path": "tickets/{}/satisfaction_ratings"
+    },
+    {
+      "name": "time_entries",
+      "key_properties": [
+        "id"
+      ],
+      "replication_method": "INCREMENTAL",
+      "replication_keys": [
+        "updated_at"
+      ],
+      "path": "tickets/{}/time_entries"
+    },
+    {
+      "name": "agents",
+      "key_properties": [
+        "id"
+      ],
+      "replication_method": "FULL_TABLE",
+      "path": "agents"
+    },
+    {
+      "name": "groups",
+      "key_properties": [
+        "id"
+      ],
+      "replication_method": "FULL_TABLE",
+      "path": "groups"
+    },
+    {
+      "name": "roles",
+      "key_properties": [
+        "id"
+      ],
+      "replication_method": "FULL_TABLE",
+      "path": "roles"
+    }
+  ],
+  "author": "Stitch Dev",
+  "third_party_dependencies": [
+    "requests==2.32.3",
+    "singer-python==6.1.0",
+    "backoff==2.2.1"
+  ]
+}
