@@ -84,7 +84,7 @@ class BaseStream(ABC):
         return metadata.get(self.metadata, (), "selected")
     
     def is_child_selected(self, child):
-        return child.metadata.get((), {}).get("selected", False)
+        return metadata.get(child.metadata, (), "selected")
 
     @abstractmethod
     def sync(
@@ -515,7 +515,7 @@ class ChildBaseStream(IncrementalStream):
                 record_timestamp = transformed_record[self.replication_keys[0]]
 
                 # Compare against whichever is newer: child's own or parent's
-                if record_timestamp >= (child_bookmark or parent_bookmark):
+                if record_timestamp >= max(filter(None, [child_bookmark, parent_bookmark])):
                     write_record(self.tap_stream_id, transformed_record)
                     counter.increment()
                     last_record_timestamp = record_timestamp
