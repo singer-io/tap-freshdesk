@@ -12,3 +12,7 @@ class Agents(FullTableStream):
     tap_stream_id = "agents"
     key_properties = ["id"]
     path = "agents"
+
+    def get_url_endpoint(self, parent_obj=None):
+        """Get the URL endpoint for the agents stream."""
+        return f"{self.client.base_url}/{self.path}"

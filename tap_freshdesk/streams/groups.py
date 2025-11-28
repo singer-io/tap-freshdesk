@@ -12,3 +12,7 @@ class Groups(FullTableStream):
     tap_stream_id = "groups"
     key_properties = ["id"]
     path = "groups"
+
+    def get_url_endpoint(self, parent_obj=None):
+        """Get the URL endpoint for the groups stream."""
+        return f"{self.client.base_url}/{self.path}"

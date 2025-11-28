@@ -82,7 +82,7 @@ class BaseStream(ABC):
 
     def is_selected(self):
         return metadata.get(self.metadata, (), "selected")
-    
+
     def is_child_selected(self, child):
         return metadata.get(child.metadata, (), "selected")
 
@@ -303,6 +303,7 @@ class FullTableStream(BaseStream):
 
     def sync(self, state: Dict, transformer: Transformer) -> Dict:
         """Abstract implementation for `type: Fulltable` stream."""
+        self.url_endpoint = self.get_url_endpoint()
         with metrics.record_counter(self.tap_stream_id) as counter:
             for record in self.get_records():
                 transformed_record = transformer.transform(
@@ -442,7 +443,7 @@ class ChildBaseStream(IncrementalStream):
             self.bookmark_value = super().get_bookmark(state, stream)
 
         return self.bookmark_value
-    
+
     def get_parent_bookmark_for_category(self, state: Dict, category_key: str):
             """
             Reads the parent's bookmark date stored in the child's state for a given category.
