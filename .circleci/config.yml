@@ -11,9 +11,9 @@ jobs:
       - run:
           name: 'Setup Virtual Env'
           command: |
-            uv venv --python 3.9 /usr/local/share/virtualenvs/tap-freshdesk
+            uv venv --python 3.12 /usr/local/share/virtualenvs/tap-freshdesk
             source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
-            uv pip install -U pip setuptools
+            uv pip install -U setuptools
             uv pip install .[dev]
       - run:
           name: 'JSON Validator'
@@ -24,15 +24,15 @@ jobs:
           name: 'pylint'
           command: |
             source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
-            pip install pylint
+            uv pip install pylint
             pylint tap_freshdesk -d C,R,W
       - add_ssh_keys
       - run:
           name: 'Unit Tests'
           command: |
             source /usr/local/share/virtualenvs/tap-freshdesk/bin/activate
-            pip install nose coverage
-            nosetests --with-coverage --cover-erase --cover-package=tap_freshdesk --cover-html-dir=htmlcov tests/unittests
+            uv pip install pytest coverage
+            coverage run -m pytest tests/unittests
             coverage html
       - store_test_results:
           path: test_output/report.xml
