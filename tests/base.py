@@ -50,7 +50,8 @@ class FreshdeskBaseTest(BaseCase):
                 cls.REPLICATION_METHOD: cls.INCREMENTAL,
                 cls.REPLICATION_KEYS: {"updated_at"},
                 cls.EXPECTED_PAGE_SIZE: 100,
-                cls.API_LIMIT: 100
+                cls.API_LIMIT: 100,
+                cls.PARENT_TAP_STREAM_ID: "tickets"
             },
             "groups": {
                 cls.PRIMARY_KEYS: {"id"},
@@ -69,7 +70,8 @@ class FreshdeskBaseTest(BaseCase):
                 cls.REPLICATION_METHOD: cls.INCREMENTAL,
                 cls.REPLICATION_KEYS: {"updated_at"},
                 cls.EXPECTED_PAGE_SIZE: 100,
-                cls.API_LIMIT: 100
+                cls.API_LIMIT: 100,
+                cls.PARENT_TAP_STREAM_ID: "tickets"
             },
             "tickets": {
                 cls.PRIMARY_KEYS: {"id"},
@@ -83,7 +85,8 @@ class FreshdeskBaseTest(BaseCase):
                 cls.REPLICATION_METHOD: cls.INCREMENTAL,
                 cls.REPLICATION_KEYS: {"updated_at"},
                 cls.EXPECTED_PAGE_SIZE: 100,
-                cls.API_LIMIT: 100
+                cls.API_LIMIT: 100,
+                cls.PARENT_TAP_STREAM_ID: "tickets"
             },
         }
 
