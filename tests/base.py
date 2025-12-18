@@ -10,6 +10,7 @@ class FreshdeskBaseTest(BaseCase):
     """
 
     start_date = "2017-01-01T00:00:00Z"
+    PARENT_TAP_STREAM_ID = "parent-tap-stream-id"
 
     @staticmethod
     def tap_name():
