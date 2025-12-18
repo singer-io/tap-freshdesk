@@ -10,6 +10,7 @@ class FreshdeskBaseTest(BaseCase):
     """
 
     start_date = "2017-01-01T00:00:00Z"
+    PARENT_TAP_STREAM_ID = "parent-tap-stream-id"
 
     @staticmethod
     def tap_name():
@@ -50,7 +51,8 @@ class FreshdeskBaseTest(BaseCase):
                 cls.REPLICATION_METHOD: cls.INCREMENTAL,
                 cls.REPLICATION_KEYS: {"updated_at"},
                 cls.EXPECTED_PAGE_SIZE: 100,
-                cls.API_LIMIT: 100
+                cls.API_LIMIT: 100,
+                cls.PARENT_TAP_STREAM_ID: "tickets"
             },
             "groups": {
                 cls.PRIMARY_KEYS: {"id"},
@@ -69,7 +71,8 @@ class FreshdeskBaseTest(BaseCase):
                 cls.REPLICATION_METHOD: cls.INCREMENTAL,
                 cls.REPLICATION_KEYS: {"updated_at"},
                 cls.EXPECTED_PAGE_SIZE: 100,
-                cls.API_LIMIT: 100
+                cls.API_LIMIT: 100,
+                cls.PARENT_TAP_STREAM_ID: "tickets"
             },
             "tickets": {
                 cls.PRIMARY_KEYS: {"id"},
@@ -83,7 +86,8 @@ class FreshdeskBaseTest(BaseCase):
                 cls.REPLICATION_METHOD: cls.INCREMENTAL,
                 cls.REPLICATION_KEYS: {"updated_at"},
                 cls.EXPECTED_PAGE_SIZE: 100,
-                cls.API_LIMIT: 100
+                cls.API_LIMIT: 100,
+                cls.PARENT_TAP_STREAM_ID: "tickets"
             },
         }
 

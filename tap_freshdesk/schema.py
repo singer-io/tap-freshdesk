@@ -56,6 +56,9 @@ def get_schemas() -> Tuple[Dict, Dict]:
             replication_method=getattr(stream_obj, "replication_method"),
         )
         mdata = metadata.to_map(mdata)
+        parent_stream_id = getattr(stream_obj, "parent", None)
+        if parent_stream_id and isinstance(parent_stream_id, str):
+            mdata = metadata.write(mdata, (), "parent-tap-stream-id", parent_stream_id)
 
         automatic_keys = getattr(stream_obj, "replication_keys") or []
         for field_name in schema["properties"].keys():
