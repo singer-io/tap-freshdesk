@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0
+  * Adds `parent-tap-stream-id` field to catalog [#64](https://github.com/singer-io/tap-freshdesk/pull/64)
+  * singer-python upgrade to 6.8.0
+
 ## 1.0.0
   * Complete refactoring of the tap [#60](https://github.com/singer-io/tap-freshdesk/pull/60)
   * Bump version of `requests` dependency to 2.32.3
