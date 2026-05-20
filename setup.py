@@ -9,7 +9,7 @@ setup(
     classifiers=["Programming Language :: Python :: 3 :: Only"],
     py_modules=["tap_freshdesk"],
     install_requires=[
-        "requests==2.34.0",
+        "requests==2.34.2",
         "singer-python==6.8.0",
         "backoff==2.2.1"],
     entry_points="""
