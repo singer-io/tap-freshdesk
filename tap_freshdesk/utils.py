@@ -35,7 +35,7 @@ def check_stream_access(stream_name, probe_fn, auth_error_types, fallback_access
             stream_name,
         )
         return False
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         if fallback_accessible:
             LOGGER.info("Stream '%s' endpoint reachable (auth OK).", stream_name)
             return True
