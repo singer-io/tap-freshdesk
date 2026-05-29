@@ -112,7 +112,7 @@ class TestDiscover(unittest.TestCase):
         client = MagicMock()
         with self.assertRaises(freshdeskNoAccessibleStreamsError) as ctx:
             discover(client)
-        self.assertIn("No stream endpoints are accessible", str(ctx.exception))
+        self.assertIn("The credentials do not have read access to any of the supported streams", str(ctx.exception))
 
     @patch("tap_freshdesk.discover.get_schemas")
     @patch("tap_freshdesk.discover.check_stream_access")
