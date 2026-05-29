@@ -8,55 +8,26 @@ from tap_freshdesk.exceptions import freshdeskUnauthorizedError, freshdeskForbid
 LOGGER = singer.get_logger()
 
 
-def check_stream_access(stream_name, probe_fn, auth_error_types, fallback_accessible=False):
+def check_stream_access(client, stream_class) -> bool:
     """
-    Probe a stream endpoint and return True if accessible, False on auth error.
-
-    :param stream_name: Used in log messages.
-    :param probe_fn: Zero-argument callable that performs the API probe.
-    :param auth_error_types: Exception type(s) indicating 401/403 — returns False.
-    :param fallback_accessible: If True, non-auth errors (e.g. 400 from minimal
-                                probe params) are treated as auth-OK and return True.
-                                If False (default), they are re-raised.
-    """
-    try:
-        probe_fn()
-        LOGGER.info("Stream '%s' is accessible.", stream_name)
-        return True
-    except auth_error_types:
-        LOGGER.warning(
-            "Stream '%s' is not accessible with the provided credentials.",
-            stream_name,
-        )
-        return False
-    except Exception:  # pylint: disable=broad-except
-        if fallback_accessible:
-            LOGGER.info("Stream '%s' endpoint reachable (auth OK).", stream_name)
-            return True
-        raise
-
-
-def _check_stream_access(client, stream_name, stream_class) -> bool:
-    """
-    Probes a stream endpoint with page_size=1 to verify the credentials have
-    access. Child streams whose path contains '{}' (they require a parent ID)
-    are skipped and assumed accessible.
-    Returns True if accessible, False on 401/403.
+    Probes a stream endpoint with page_size=1 to verify the credentials have access.
+    Child streams whose path contains '{}' require a parent ID and cannot be probed,
+    so they are assumed accessible.
+    Returns True if accessible, False on 401/403. Any other exception is re-raised.
     """
     if '{}' in stream_class.path:
-        # Child streams cannot be probed without a parent ID — skip and include.
         return True
 
     endpoint = f"{client.base_url}/{stream_class.path}"
-    return check_stream_access(
-        stream_name,
-        probe_fn=lambda: client.get(
+    try:
+        client.get(
             endpoint=endpoint,
             params={"per_page": 1, "page": 1},
             headers={"Accept": "application/json"},
-        ),
-        auth_error_types=(freshdeskUnauthorizedError, freshdeskForbiddenError),
-    )
+        )
+        return True
+    except (freshdeskUnauthorizedError, freshdeskForbiddenError):
+        return False
 
 
 def discover(client) -> Catalog:
@@ -68,7 +39,7 @@ def discover(client) -> Catalog:
     catalog = Catalog([])
 
     for stream_name, schema_dict in schemas.items():
-        if not _check_stream_access(client, stream_name, STREAMS[stream_name]):
+        if not check_stream_access(client, STREAMS[stream_name]):
             LOGGER.warning(
                 "Stream '%s' will be excluded from the catalog due to insufficient permissions.",
                 stream_name,
