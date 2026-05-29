@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.0
+  * Added per-stream access checks during discovery; streams returning 401 Unauthorized or 403 Forbidden are excluded from the catalog [#66](https://github.com/singer-io/tap-freshdesk/pull/66)
+
 ## 1.0.0
   * Complete refactoring of the tap [#60](https://github.com/singer-io/tap-freshdesk/pull/60)
   * Bump version of `requests` dependency to 2.32.3

@@ -6,7 +6,11 @@ import json
 import os
 import time
 
+import singer
+
 DATETIME_FMT = "%Y-%m-%dT%H:%M:%SZ"
+
+LOGGER = singer.get_logger()
 
 
 def strptime(dt):
