@@ -69,8 +69,7 @@ def discover(client) -> Catalog:
 
     if not catalog.streams:
         raise freshdeskNoAccessibleStreamsError(
-            "No stream endpoints are accessible with the provided credentials. "
-            "Verify that the API key has the required permissions."
+            "The credentials do not have read access to any of the supported streams."
         )
 
     return catalog
