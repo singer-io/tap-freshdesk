@@ -2,9 +2,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from tap_freshdesk.exceptions import freshdeskUnauthorizedError, freshdeskForbiddenError
-from tap_freshdesk.utils import check_stream_access
-from tap_freshdesk.discover import _check_stream_access, discover
+from tap_freshdesk.exceptions import freshdeskUnauthorizedError, freshdeskForbiddenError, freshdeskNoAccessibleStreamsError
+from tap_freshdesk.discover import check_stream_access, _check_stream_access, discover
 from tap_freshdesk.streams import STREAMS
 
 
@@ -13,7 +12,7 @@ from tap_freshdesk.streams import STREAMS
 # ---------------------------------------------------------------------------
 
 class TestCheckStreamAccess(unittest.TestCase):
-    """Tests for the shared check_stream_access helper in tap_freshdesk.utils."""
+    """Tests for the shared check_stream_access helper in tap_freshdesk.discover."""
 
     def test_returns_true_when_probe_succeeds(self):
         result = check_stream_access(
@@ -167,13 +166,15 @@ class TestDiscover(unittest.TestCase):
 
     @patch("tap_freshdesk.discover.get_schemas")
     @patch("tap_freshdesk.discover._check_stream_access")
-    def test_all_inaccessible_returns_empty_catalog(self, mock_check, mock_get_schemas):
+    def test_all_inaccessible_raises_exception(self, mock_check, mock_get_schemas):
+        """When all streams are inaccessible, discover() raises freshdeskNoAccessibleStreamsError."""
         mock_get_schemas.return_value = self._minimal_schema_pair(list(STREAMS.keys()))
         mock_check.return_value = False
 
         client = MagicMock()
-        catalog = discover(client)
-        self.assertEqual(catalog.streams, [])
+        with self.assertRaises(freshdeskNoAccessibleStreamsError) as ctx:
+            discover(client)
+        self.assertIn("No stream endpoints are accessible", str(ctx.exception))
 
     @patch("tap_freshdesk.discover.get_schemas")
     @patch("tap_freshdesk.discover._check_stream_access")
