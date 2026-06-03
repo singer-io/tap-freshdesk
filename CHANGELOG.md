@@ -1,5 +1,9 @@
 # Changelog
 
+# 1.0.1
+  * Bump requests to 2.33.0 for security updates [#66](https://github.com/singer-io/tap-freshdesk/pull/66)
+
+
 ## 1.0.0
   * Complete refactoring of the tap [#60](https://github.com/singer-io/tap-freshdesk/pull/60)
   * Bump version of `requests` dependency to 2.32.3
