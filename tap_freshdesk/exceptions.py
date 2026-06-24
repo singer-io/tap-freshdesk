@@ -52,7 +52,28 @@ class freshdeskUnprocessableEntityError(freshdeskBackoffError):
 class freshdeskRateLimitError(freshdeskBackoffError):
     """Class representing 429 status code."""
 
-    pass
+    def __init__(self, message=None, response=None):
+        """Initalize a freshdesk rate-limit error class and extracts the Retry-After header from the response."""
+        self.response = response
+        self.message = message
+        self.retry_after = None
+
+        if response is not None:
+            headers = response.headers or {}
+
+            retry_after = headers.get("Retry-After")
+            # try to parse the retry_after value as a float, if it fails, default to 60 seconds
+            try:
+                self.retry_after = float(retry_after)
+            except (ValueError, TypeError):
+                self.retry_after = 60.0
+
+        base_message = self.message or "FreshDesk Rate Limit Exceeded"
+
+        if self.retry_after is not None:
+            base_message += f" - Retry after {self.retry_after} seconds"
+
+        super().__init__(base_message, response)
 
 
 class freshdeskInternalServerError(freshdeskBackoffError):
