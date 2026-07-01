@@ -53,7 +53,7 @@ class freshdeskRateLimitError(freshdeskBackoffError):
     """Class representing 429 status code."""
 
     def __init__(self, message=None, response=None):
-        """Initalize a freshdesk rate-limit error class and extracts the Retry-After header from the response."""
+        """Initialize a Freshdesk rate-limit error and extract the Retry-After header from the response."""
         self.response = response
         self.message = message
         self.retry_after = None

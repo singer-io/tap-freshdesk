@@ -398,14 +398,14 @@ class ParentBaseStream(IncrementalStream):
                         self.tap_stream_id
                     )  # Default key when value is None or empty
 
-                # Added a workfolw with try catch to handle freshdesk limitation for tickets endpoint.
+                # Added a workflow with try/except to handle Freshdesk's ticket endpoint limitation.
                 # The Tickets endpoint returns a maximum of 300 pages (30,000 tickets).
-                # If more than 300 pages or 30,000 tickets request is sent, the API returns a 400 error.
+                # If a request would exceed this limit, the API returns a 400 error.
                 # Ref: https://developers.freshdesk.com/api/#list_all_tickets
                 restart_count = 0  # Counter check for max 400 error retries
                 sync_completed = False  # Flag to handle the while loop
 
-                while not sync_completed:  # If the sync was abrupted, the core workflow will be resumed with updated state
+                while not sync_completed:  # If the sync was interrupted, the core workflow will be resumed with updated state
 
                     current_max_bookmark_date = bookmark_date = updated_since = (
                         self.get_bookmark(state, ticket_key)
@@ -426,15 +426,11 @@ class ParentBaseStream(IncrementalStream):
 
                             record_timestamp = transformed_record[self.replication_keys[0]]
 
-                            #
                             # Timestamp window handling
-                            #
                             # Example:
-                            #
                             # 10:00 -> cache {1,2,3}
                             # 10:01 -> clear cache
                             # 10:02 -> clear cache
-                            #
                             if self.current_timestamp_window != record_timestamp:
                                 LOGGER.info(
                                     "Moving timestamp window from %s to %s. "
@@ -479,9 +475,7 @@ class ParentBaseStream(IncrementalStream):
                                     current_max_bookmark_date, record_timestamp
                                 )
 
-                        #
                         # Sync completed successfully.
-                        #
                         state = self.write_bookmark(
                             state,
                             ticket_key,
@@ -493,6 +487,7 @@ class ParentBaseStream(IncrementalStream):
                     except freshdeskBadRequestError:
                         restart_count += 1
                         # handle a freshdesk bad-request error. Then rerun the sync with the state set to current_max_bookmark_date.
+                        # Ref: https://developers.freshdesk.com/api/#list_all_tickets
                         LOGGER.warning(
                             "Freshdesk ticket limit reached for %s. "
                             "Restarting sync from bookmark %s "
