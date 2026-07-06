@@ -1,130 +1,197 @@
-"""Unit tests for tap_freshdesk discover module and check_stream_access helper."""
+"""Unit tests for discovery access checks and catalog pruning."""
 import unittest
 from unittest.mock import MagicMock, patch
 
-from tap_freshdesk.exceptions import freshdeskUnauthorizedError, freshdeskForbiddenError, freshdeskNoAccessibleStreamsError
-from tap_freshdesk.discover import check_stream_access, discover
+from tap_freshdesk.discover import (
+    _apply_access_checks,
+    _prune_inaccessible_children,
+    check_stream_access,
+    discover,
+)
+from tap_freshdesk.exceptions import freshdeskNotFoundError
+from tap_freshdesk.exceptions import freshdeskNoAccessibleStreamsError
 from tap_freshdesk.streams import STREAMS
 
 
-# ---------------------------------------------------------------------------
-# check_stream_access
-# ---------------------------------------------------------------------------
-
 class TestCheckStreamAccess(unittest.TestCase):
-    """Tests for the merged check_stream_access function in tap_freshdesk.discover."""
+    """Tests for stream-level access probing wrapper."""
 
-    def _make_client(self, side_effect=None):
+    def test_wrapper_uses_stream_check_access(self):
+        client = MagicMock()
+
+        class FakeStream:
+            def __init__(self, client=None, catalog=None):
+                self.client = client
+
+            def check_access(self):
+                return True
+
+        self.assertTrue(check_stream_access(client, FakeStream))
+
+    def test_child_stream_is_probed(self):
         client = MagicMock()
         client.base_url = "https://example.freshdesk.com/api/v2"
-        if side_effect:
-            client.get.side_effect = side_effect
-        return client
+        client.get.side_effect = [
+            [{"id": 101}],
+            [{"id": 1, "updated_at": "2024-01-01T00:00:00Z"}],
+        ]
 
-    def test_child_stream_always_accessible(self):
-        """Child streams (path contains '{}') are skipped and returned as True."""
-        for stream_name, stream_cls in STREAMS.items():
-            if '{}' in stream_cls.path:
-                client = self._make_client()
-                result = check_stream_access(client, stream_cls)
-                self.assertTrue(result, msg=f"Child stream '{stream_name}' should always be True")
-                client.get.assert_not_called()
+        result = check_stream_access(client, STREAMS["conversations"])
 
-    def test_top_level_stream_returns_true_when_accessible(self):
-        client = self._make_client()
-        result = check_stream_access(client, STREAMS["tickets"])
         self.assertTrue(result)
+        self.assertEqual(client.get.call_count, 2)
+        first_endpoint = client.get.call_args_list[0].kwargs["endpoint"]
+        second_endpoint = client.get.call_args_list[1].kwargs["endpoint"]
+        self.assertEqual(first_endpoint, f"{client.base_url}/tickets")
+        self.assertEqual(second_endpoint, f"{client.base_url}/tickets/101/conversations")
+
+    def test_child_stream_probe_raises_for_generic_404(self):
+        client = MagicMock()
+        client.base_url = "https://example.freshdesk.com/api/v2"
+        client.get.side_effect = [
+            [{"id": 101}],
+            freshdeskNotFoundError("404"),
+        ]
+
+        with self.assertRaises(freshdeskNotFoundError):
+            check_stream_access(client, STREAMS["conversations"])
+        self.assertEqual(client.get.call_count, 2)
+
+    def test_child_stream_probe_returns_false_for_account_not_found_404(self):
+        client = MagicMock()
+        client.base_url = "https://example.freshdesk.com/api/v2"
+        client.get.side_effect = [
+            [{"id": 101}],
+            freshdeskNotFoundError("HTTP-error-code: 404, Error: Account not found for the provided domain"),
+        ]
+
+        result = check_stream_access(client, STREAMS["conversations"])
+
+        self.assertFalse(result)
+        self.assertEqual(client.get.call_count, 2)
+
+    def test_parent_stream_probe_returns_false_for_account_not_found_404(self):
+        client = MagicMock()
+        client.base_url = "https://example.freshdesk.com/api/v2"
+        client.get.side_effect = freshdeskNotFoundError(
+            "HTTP-error-code: 404, Error: Account not found for the provided domain"
+        )
+
+        result = check_stream_access(client, STREAMS["tickets"])
+
+        self.assertFalse(result)
         client.get.assert_called_once()
 
-    def test_top_level_stream_returns_false_on_401(self):
-        client = self._make_client(side_effect=freshdeskUnauthorizedError("401"))
-        result = check_stream_access(client, STREAMS["tickets"])
-        self.assertFalse(result)
 
-    def test_top_level_stream_returns_false_on_403(self):
-        client = self._make_client(side_effect=freshdeskForbiddenError("403"))
-        result = check_stream_access(client, STREAMS["agents"])
-        self.assertFalse(result)
+class TestAccessChecks(unittest.TestCase):
+    """Tests for in-place stream access filtering."""
 
-    def test_top_level_stream_reraises_other_errors(self):
-        client = self._make_client(side_effect=ConnectionError("timeout"))
-        with self.assertRaises(ConnectionError):
-            check_stream_access(client, STREAMS["contacts"])
+    def _schemas_and_metadata(self, names):
+        schemas = {name: {"type": "object", "properties": {}} for name in names}
+        field_metadata = {
+            name: [{"metadata": {"table-key-properties": ["id"]}, "breadcrumb": []}]
+            for name in names
+        }
+        return schemas, field_metadata
 
-    def test_probe_url_is_built_from_base_url_and_path(self):
-        """Verifies the endpoint passed to client.get is base_url + path."""
-        client = self._make_client()
-        stream_cls = STREAMS["tickets"]
-        check_stream_access(client, stream_cls)
-        call_kwargs = client.get.call_args
-        called_endpoint = call_kwargs.kwargs.get("endpoint") or call_kwargs[1].get("endpoint")
-        self.assertIn(stream_cls.path, called_endpoint)
+    @patch("tap_freshdesk.discover.check_stream_access", return_value=True)
+    def test_apply_access_checks_keeps_all_accessible_streams(self, _mock_check):
+        names = ["tickets", "conversations", "agents"]
+        schemas, field_metadata = self._schemas_and_metadata(names)
 
+        _apply_access_checks(MagicMock(), schemas, field_metadata)
 
-# ---------------------------------------------------------------------------
-# discover()
-# ---------------------------------------------------------------------------
+        self.assertEqual(set(schemas.keys()), set(names))
+        self.assertEqual(set(field_metadata.keys()), set(names))
+
+    @patch("tap_freshdesk.discover.check_stream_access")
+    def test_apply_access_checks_removes_inaccessible_streams(self, mock_check):
+        names = ["tickets", "agents"]
+        schemas, field_metadata = self._schemas_and_metadata(names)
+
+        def _side_effect(_client, stream_cls):
+            return stream_cls is not STREAMS["agents"]
+
+        mock_check.side_effect = _side_effect
+        _apply_access_checks(MagicMock(), schemas, field_metadata)
+
+        self.assertEqual(set(schemas.keys()), {"tickets"})
+        self.assertEqual(set(field_metadata.keys()), {"tickets"})
+
+    @patch("tap_freshdesk.discover.STREAMS")
+    def test_prune_inaccessible_children_removes_nested_descendants(self, mock_streams):
+        class Parent:
+            parent = ""
+
+        class Child:
+            parent = "parent"
+
+        class GrandChild:
+            parent = "child"
+
+        mock_streams.items.return_value = [
+            ("parent", Parent),
+            ("child", Child),
+            ("grandchild", GrandChild),
+        ]
+
+        schemas = {"child": {}, "grandchild": {}}
+        field_metadata = {"child": [], "grandchild": []}
+
+        _prune_inaccessible_children(schemas, field_metadata)
+
+        self.assertEqual(schemas, {})
+        self.assertEqual(field_metadata, {})
+
+    @patch("tap_freshdesk.discover.check_stream_access", return_value=False)
+    def test_apply_access_checks_raises_when_no_stream_access(self, _mock_check):
+        names = ["tickets", "conversations"]
+        schemas, field_metadata = self._schemas_and_metadata(names)
+
+        with self.assertRaises(freshdeskNoAccessibleStreamsError):
+            _apply_access_checks(MagicMock(), schemas, field_metadata)
+
 
 class TestDiscover(unittest.TestCase):
-    """Tests for the discover() function in tap_freshdesk.discover."""
+    """Tests for discover() with access-check orchestration."""
 
     def _minimal_schema_pair(self, stream_names):
-        schemas = {n: {"type": "object", "properties": {}} for n in stream_names}
-        meta = {n: [{"metadata": {"table-key-properties": ["id"]}, "breadcrumb": []}]
-                for n in stream_names}
-        return schemas, meta
+        schemas = {name: {"type": "object", "properties": {}} for name in stream_names}
+        metadata_map = {
+            name: [{"metadata": {"table-key-properties": ["id"]}, "breadcrumb": []}]
+            for name in stream_names
+        }
+        return schemas, metadata_map
 
+    @patch("tap_freshdesk.discover._apply_access_checks")
     @patch("tap_freshdesk.discover.get_schemas")
-    @patch("tap_freshdesk.discover.check_stream_access")
-    def test_all_accessible_streams_in_catalog(self, mock_check, mock_get_schemas):
-        """All streams accessible → all appear in the catalog."""
-        stream_names = list(STREAMS.keys())
+    def test_discover_calls_access_checks_before_catalog_build(self, mock_get_schemas, mock_apply):
+        stream_names = ["tickets", "conversations"]
         mock_get_schemas.return_value = self._minimal_schema_pair(stream_names)
-        mock_check.return_value = True
 
         client = MagicMock()
         catalog = discover(client)
-        returned = {s.tap_stream_id for s in catalog.streams}
-        self.assertEqual(returned, set(stream_names))
+
+        self.assertEqual({entry.tap_stream_id for entry in catalog.streams}, set(stream_names))
+        mock_apply.assert_called_once()
 
     @patch("tap_freshdesk.discover.get_schemas")
     @patch("tap_freshdesk.discover.check_stream_access")
-    def test_inaccessible_stream_excluded(self, mock_check, mock_get_schemas):
-        """A stream returning False from access check is excluded from the catalog."""
-        stream_names = list(STREAMS.keys())
-        blocked = "agents"
+    def test_discover_excludes_child_when_parent_is_inaccessible(self, mock_check, mock_get_schemas):
+        stream_names = ["tickets", "conversations", "agents"]
         mock_get_schemas.return_value = self._minimal_schema_pair(stream_names)
-        mock_check.side_effect = lambda client, cls: cls is not STREAMS[blocked]
 
-        client = MagicMock()
-        catalog = discover(client)
-        returned = {s.tap_stream_id for s in catalog.streams}
-        self.assertNotIn(blocked, returned)
-        self.assertEqual(returned, set(stream_names) - {blocked})
+        def _side_effect(_client, stream_cls):
+            if stream_cls is STREAMS["tickets"]:
+                return False
+            return True
 
-    @patch("tap_freshdesk.discover.get_schemas")
-    @patch("tap_freshdesk.discover.check_stream_access")
-    def test_all_inaccessible_raises_exception(self, mock_check, mock_get_schemas):
-        """When all streams are inaccessible, discover() raises freshdeskNoAccessibleStreamsError."""
-        mock_get_schemas.return_value = self._minimal_schema_pair(list(STREAMS.keys()))
-        mock_check.return_value = False
+        mock_check.side_effect = _side_effect
 
-        client = MagicMock()
-        with self.assertRaises(freshdeskNoAccessibleStreamsError) as ctx:
-            discover(client)
-        self.assertIn("The credentials do not have read access to any of the supported streams", str(ctx.exception))
+        catalog = discover(MagicMock())
+        stream_ids = {entry.tap_stream_id for entry in catalog.streams}
 
-    @patch("tap_freshdesk.discover.get_schemas")
-    @patch("tap_freshdesk.discover.check_stream_access")
-    def test_check_called_for_every_stream(self, mock_check, mock_get_schemas):
-        """check_stream_access is called exactly once per stream."""
-        stream_names = list(STREAMS.keys())
-        mock_get_schemas.return_value = self._minimal_schema_pair(stream_names)
-        mock_check.return_value = True
-
-        client = MagicMock()
-        discover(client)
-        self.assertEqual(mock_check.call_count, len(stream_names))
+        self.assertEqual(stream_ids, {"agents"})
 
 
 if __name__ == "__main__":
