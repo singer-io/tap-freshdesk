@@ -66,6 +66,7 @@ def discover(client) -> Catalog:
     Probes each stream endpoint to verify access; inaccessible streams are
     excluded from the returned catalog.
     """
+    client.check_api_credentials()
     schemas, field_metadata = get_schemas()
     _apply_access_checks(client, schemas, field_metadata)
     catalog = Catalog([])

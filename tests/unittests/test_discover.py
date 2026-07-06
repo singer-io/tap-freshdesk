@@ -10,6 +10,7 @@ from tap_freshdesk.discover import (
 )
 from tap_freshdesk.exceptions import freshdeskNotFoundError
 from tap_freshdesk.exceptions import freshdeskNoAccessibleStreamsError
+from tap_freshdesk.exceptions import freshdeskUnauthorizedError
 from tap_freshdesk.streams import STREAMS
 
 
@@ -173,7 +174,20 @@ class TestDiscover(unittest.TestCase):
         catalog = discover(client)
 
         self.assertEqual({entry.tap_stream_id for entry in catalog.streams}, set(stream_names))
+        client.check_api_credentials.assert_called_once()
         mock_apply.assert_called_once()
+
+    @patch("tap_freshdesk.discover._apply_access_checks")
+    @patch("tap_freshdesk.discover.get_schemas")
+    def test_discover_fails_fast_for_invalid_credentials(self, mock_get_schemas, mock_apply):
+        client = MagicMock()
+        client.check_api_credentials.side_effect = freshdeskUnauthorizedError("invalid credentials")
+
+        with self.assertRaises(freshdeskUnauthorizedError):
+            discover(client)
+
+        mock_get_schemas.assert_not_called()
+        mock_apply.assert_not_called()
 
     @patch("tap_freshdesk.discover.get_schemas")
     @patch("tap_freshdesk.discover.check_stream_access")
