@@ -14,10 +14,16 @@ class FreshdeskStartDateTest(StartDateTest, FreshdeskBaseTest):
         streams_to_exclude = {
             "satisfaction_ratings",
             "time_entries",
-            "agents",
-            "groups",
-            "roles"
-        }
+            "email_mailboxes",
+            "email_configs",
+            "sla_policies",
+            "scenario_automations",
+            "contact_fields",
+            "company_fields",
+            "ticket_fields",
+            "business_hours",
+            "account"  # Full Table
+            }
         return self.expected_stream_names().difference(streams_to_exclude)
 
     @property

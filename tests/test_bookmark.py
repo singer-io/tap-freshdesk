@@ -31,7 +31,16 @@ class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
             "tickets_deleted",
             "conversations_deleted",
             "conversations",
-            "tickets"
+            "tickets",
+            "scenario_automations",
+            "contact_fields",
+            "email_mailboxes",
+            "company_fields",
+            "email_configs",
+            "sla_policies",
+            "ticket_fields",
+            "business_hours",
+            "account"  # Full Table
             }
         return self.expected_stream_names().difference(streams_to_exclude)
 

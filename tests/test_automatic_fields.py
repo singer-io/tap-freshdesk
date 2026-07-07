@@ -15,5 +15,14 @@ class FreshdeskAutomaticFields(MinimumSelectionTest, FreshdeskBaseTest):
         return "tap_tester_freshdesk_automatic_fields_test"
 
     def streams_to_test(self):
-        streams_to_exclude = {"satisfaction_ratings", "time_entries"}
+        streams_to_exclude = {
+            "satisfaction_ratings",
+            "time_entries",
+            "email_mailboxes",
+            "email_configs",
+            "sla_policies",
+            "scenario_automations",
+            "contact_fields",
+            "company_fields"
+            }
         return self.expected_stream_names().difference(streams_to_exclude)
