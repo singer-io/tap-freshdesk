@@ -1,0 +1,137 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": [
+        "null",
+        "integer"
+      ]
+    },
+    "name": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "label": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "description": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "position": {
+      "type": [
+        "null",
+        "integer"
+      ]
+    },
+    "portal_cc": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "portal_cc_to": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "type": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "label_for_customers": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "default": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "required_for_closure": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "required_for_agents": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "required_for_customers": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "customers_can_edit": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "displayed_to_customers": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "field_update_in_progress": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "choices": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "format": "date-time"
+    }
+  }
+}

@@ -74,7 +74,9 @@ class Client:
         self._session.close()
 
     def check_api_credentials(self) -> None:
+        LOGGER.info("Checking API credentials...")
         if self._credentials_validated:
+            LOGGER.info("API credentials already validated. Skipping check.")
             return
 
         self.get(
@@ -83,6 +85,7 @@ class Client:
             headers={"Accept": "application/json"},
         )
         self._credentials_validated = True
+        LOGGER.info("API credentials are valid.")
 
     def get(self, endpoint: str, params: Dict, headers: Dict, path: str = None) -> Any:
         """Calls the make_request method with a prefixed method type `GET`"""

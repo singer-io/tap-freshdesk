@@ -12,6 +12,8 @@ from singer import (
     write_record,
     write_schema,
 )
+from urllib.parse import parse_qs, urlparse
+
 from singer.utils import strftime, strptime_to_utc
 
 from tap_freshdesk.exceptions import (
@@ -21,6 +23,68 @@ from tap_freshdesk.exceptions import (
 )
 
 LOGGER = get_logger()
+
+
+class TokenPaginatedMixin:
+    """Mixin for streams whose API wraps records under a ``data`` key and
+    paginates using ``paging.next`` / ``paging.previous`` full URLs carrying
+    a ``next_token`` query parameter (instead of a ``page`` number).
+
+    Must appear **before** the base stream class in the class definition so
+    that Python's MRO resolves ``get_records`` from this mixin first.
+
+    Expected response shape::
+
+        {
+            "data": [...],
+            "paging": {
+                "next": "https://…?per_page=100&next_token=<token>",
+                "previous": null
+            }
+        }
+    """
+
+    def get_records(self, state=None):  # noqa: D102
+        """Yield records using token-based (``next_token``) pagination."""
+        extraction_url = self.url_endpoint
+        self.params = {"per_page": self.page_size}
+        page_count = 1
+
+        while True:
+            LOGGER.info("Calling Page %s", page_count)
+            response = self.client.get(
+                extraction_url, self.params, self.headers, self.path
+            )
+
+            raw_records = (
+                response.get("data", []) if isinstance(response, dict) else []
+            )
+
+            if not raw_records:
+                LOGGER.warning("No records found on Page %s", page_count)
+                break
+
+            yield from raw_records
+
+            next_url = (
+                (response.get("paging") or {}).get("next")
+                if isinstance(response, dict)
+                else None
+            )
+            if not next_url:
+                break
+
+            next_token = parse_qs(urlparse(next_url).query).get(
+                "next_token", [None]
+            )[0]
+            if not next_token:
+                break
+
+            self.params = {
+                "per_page": self.page_size,
+                "next_token": next_token,
+            }
+            page_count += 1
 
 
 class BaseStream(ABC):
@@ -186,26 +250,8 @@ class BaseStream(ABC):
         endpoint = f"{self.client.base_url}/{self.path}"
         params = {"per_page": 1, "page": 1}
         try:
-            if self.parent:
-                from tap_freshdesk.streams import STREAMS
-
-                parent_stream = STREAMS[self.parent](client=self.client)
-                parent_endpoint = f"{self.client.base_url}/{parent_stream.path}"
-                parent_records = self.client.get(
-                    endpoint=parent_endpoint,
-                    params=params,
-                    headers=self.headers,
-                )
-
-                if not parent_records:
-                    LOGGER.warning(
-                        "Stream '%s' could not be probed because parent stream '%s' has no records.",
-                        self.tap_stream_id,
-                        self.parent,
-                    )
-                    return True
-
-                endpoint = f"{self.client.base_url}/{self.path.format(parent_records[0]['id'])}"
+            if self.parent:  # If the stream has a parent, add a dummy id in path
+                endpoint = f"{self.client.base_url}/{self.path.format(1)}"
 
             self.client.get(
                 endpoint=endpoint,
@@ -223,7 +269,7 @@ class BaseStream(ABC):
         except freshdeskNotFoundError as err:
             if "Account not found for the provided domain" in str(err):
                 LOGGER.warning(
-                    "Permission Error: Stream '%s' - %s",
+                    "API not found Error: Stream '%s' - %s",
                     self.tap_stream_id,
                     err,
                 )
@@ -273,6 +319,16 @@ class IncrementalStream(BaseStream):
             "conversations",
             "satisfaction_ratings",
             "time_entries",
+            "ticket_fields",
+            "email_configs",
+            "email_mailboxes",
+            "business_hours",
+            "scenario_automations",
+            "sla_policies",
+            "ticket_forms",
+            "products",
+            "skills",
+            "surveys"
         ]:
             self.params = {"per_page": self.page_size, "page": page_count}
         elif self.tap_stream_id == "tickets":
@@ -367,6 +423,7 @@ class FullTableStream(BaseStream):
                 write_record(self.tap_stream_id, transformed_record)
                 counter.increment()
             return counter.value
+
 
 class ParentBaseStream(IncrementalStream):
     """Base Class for Parent Stream."""
