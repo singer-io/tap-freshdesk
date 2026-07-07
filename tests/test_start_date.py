@@ -22,7 +22,10 @@ class FreshdeskStartDateTest(StartDateTest, FreshdeskBaseTest):
             "company_fields",
             "ticket_fields",
             "business_hours",
-            "account"  # Full Table
+            "account",  # Full Table
+            "groups",  # Full Table
+            "roles",  # Full Table
+            "agents",  # Full Table
             }
         return self.expected_stream_names().difference(streams_to_exclude)
 
