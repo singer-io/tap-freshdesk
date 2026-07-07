@@ -10,6 +10,7 @@ from tap_freshdesk.discover import (
 )
 from tap_freshdesk.exceptions import freshdeskNotFoundError
 from tap_freshdesk.exceptions import freshdeskNoAccessibleStreamsError
+from tap_freshdesk.exceptions import freshdeskForbiddenError
 from tap_freshdesk.exceptions import freshdeskUnauthorizedError
 from tap_freshdesk.streams import STREAMS
 
@@ -82,6 +83,52 @@ class TestCheckStreamAccess(unittest.TestCase):
 
         self.assertFalse(result)
         client.get.assert_called_once()
+
+    def test_parent_stream_probe_returns_false_for_401(self):
+        client = MagicMock()
+        client.base_url = "https://example.freshdesk.com/api/v2"
+        client.get.side_effect = freshdeskUnauthorizedError("401")
+
+        result = check_stream_access(client, STREAMS["tickets"])
+
+        self.assertFalse(result)
+        client.get.assert_called_once()
+
+    def test_parent_stream_probe_returns_false_for_403(self):
+        client = MagicMock()
+        client.base_url = "https://example.freshdesk.com/api/v2"
+        client.get.side_effect = freshdeskForbiddenError("403")
+
+        result = check_stream_access(client, STREAMS["tickets"])
+
+        self.assertFalse(result)
+        client.get.assert_called_once()
+
+    def test_child_stream_probe_returns_false_for_401(self):
+        client = MagicMock()
+        client.base_url = "https://example.freshdesk.com/api/v2"
+        client.get.side_effect = [
+            [{"id": 101}],
+            freshdeskUnauthorizedError("401"),
+        ]
+
+        result = check_stream_access(client, STREAMS["conversations"])
+
+        self.assertFalse(result)
+        self.assertEqual(client.get.call_count, 2)
+
+    def test_child_stream_probe_returns_false_for_403(self):
+        client = MagicMock()
+        client.base_url = "https://example.freshdesk.com/api/v2"
+        client.get.side_effect = [
+            [{"id": 101}],
+            freshdeskForbiddenError("403"),
+        ]
+
+        result = check_stream_access(client, STREAMS["conversations"])
+
+        self.assertFalse(result)
+        self.assertEqual(client.get.call_count, 2)
 
 
 class TestAccessChecks(unittest.TestCase):
