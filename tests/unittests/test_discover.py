@@ -166,6 +166,23 @@ class TestAccessChecks(unittest.TestCase):
         self.assertEqual(set(schemas.keys()), {"tickets"})
         self.assertEqual(set(field_metadata.keys()), {"tickets"})
 
+    @patch("tap_freshdesk.discover.LOGGER.warning")
+    @patch("tap_freshdesk.discover.check_stream_access")
+    def test_apply_access_checks_logs_inaccessible_parent_and_child(self, mock_check, mock_warning):
+        names = ["tickets", "conversations", "agents"]
+        schemas, field_metadata = self._schemas_and_metadata(names)
+
+        def _side_effect(_client, stream_cls):
+            if stream_cls is STREAMS["tickets"]:
+                return False
+            return True
+
+        mock_check.side_effect = _side_effect
+        _apply_access_checks(MagicMock(), schemas, field_metadata)
+
+        logged_messages = [call.args[1] for call in mock_warning.call_args_list if len(call.args) > 1]
+        self.assertIn("tickets, conversations", logged_messages)
+
     @patch("tap_freshdesk.discover.STREAMS")
     def test_prune_inaccessible_children_removes_nested_descendants(self, mock_streams):
         class Parent:
