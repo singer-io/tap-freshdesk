@@ -555,6 +555,11 @@ class ParentBaseStream(IncrementalStream):
                         # Ref: https://developers.freshdesk.com/api/#list_all_tickets
                         # If number of restarts exceeds MAX_RESTARTS, the bookmark is advanced and
                         # The next sync will start from the advanced bookmark.
+                        # Scenario:
+                        # If the bookmark is set to a timestamp where there are more than 30,000 tickets, the sync will fail again.
+                        # We will keep hitting the same API with the same parameters.
+                        # To avoid this, we will advance the bookmark by 1 second and abort the sync. (A corner case)
+
                         LOGGER.warning(
                             "Freshdesk ticket limit reached for %s. "
                             "Restarting sync from bookmark %s "
