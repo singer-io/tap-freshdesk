@@ -7,6 +7,12 @@ class freshdeskError(Exception):
         self.response = response
 
 
+class freshdeskNoAccessibleStreamsError(freshdeskError):
+    """Raised during discovery when no stream endpoints are accessible with the provided credentials."""
+
+    pass
+
+
 class freshdeskBackoffError(freshdeskError):
     """Class representing backoff error handling."""
 

@@ -14,12 +14,17 @@ class FreshdeskDiscoveryTest(DiscoveryTest, FreshdeskBaseTest):
     def streams_to_test(self):
         return self.expected_stream_names()
 
+    def expected_parent_tap_stream_id(self, stream):
+        """Helper to get expected parent stream ID from expected_metadata"""
+        return self.expected_metadata().get(stream, {}).get(self.PARENT_TAP_STREAM_ID)
+
     def test_replication_metadata(self):
         for stream in self.streams_to_test():
             with self.subTest(stream=stream):
                 # gather expectations
                 expected_replication_keys = self.expected_replication_keys(stream)
                 expected_replication_method = self.expected_replication_method(stream)
+                expected_parent = self.expected_parent_tap_stream_id(stream)
 
                 # gather results
                 catalog = [
@@ -33,6 +38,8 @@ class FreshdeskDiscoveryTest(DiscoveryTest, FreshdeskBaseTest):
                 stream_properties = [
                     item for item in metadata if item.get("breadcrumb") == []
                 ]
+                stream_metadata = stream_properties[0].get("metadata", {})
+
                 actual_replication_method = (
                     stream_properties[0]
                     .get("metadata", {})
@@ -44,9 +51,10 @@ class FreshdeskDiscoveryTest(DiscoveryTest, FreshdeskBaseTest):
                     .get(self.REPLICATION_KEYS, [])
                 )
 
+                actual_parent = stream_metadata.get(self.PARENT_TAP_STREAM_ID)
+
                 # verify the metadata key is in properties
                 self.assertIn("metadata", stream_properties[0])
-                stream_metadata = stream_properties[0]["metadata"]
 
                 # verify the replication keys metadata key is in metadata
                 self.assertIn(self.REPLICATION_METHOD, stream_metadata)
@@ -80,4 +88,24 @@ class FreshdeskDiscoveryTest(DiscoveryTest, FreshdeskBaseTest):
                             logging=f"verify the forced replication method is "
                             f"{self.INCREMENTAL} since there is a "
                             f"replication-key",
+                         )
+
+                # "verify Parent stream id" or "verify that Parent stream id is correct"
+                with self.subTest(msg="validating parent-tap-stream-id"):
+                    if expected_parent:
+                        self.assertIn(
+                            self.PARENT_TAP_STREAM_ID,
+                            stream_metadata,
+                            msg=f"{self.PARENT_TAP_STREAM_ID} missing for stream {stream}",
+                        )
+                        self.assertEqual(
+                            actual_parent,
+                            expected_parent,
+                            msg=f"Incorrect parent stream id for {stream}",
+                        )
+                    else:
+                        self.assertNotIn(
+                            self.PARENT_TAP_STREAM_ID,
+                            stream_metadata,
+                            msg=f"{self.PARENT_TAP_STREAM_ID} should not exist for stream {stream}",
                         )

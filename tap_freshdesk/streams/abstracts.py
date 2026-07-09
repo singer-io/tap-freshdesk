@@ -15,6 +15,12 @@ from singer import (
 )
 from singer.utils import strftime, strptime_to_utc
 
+from tap_freshdesk.exceptions import (
+    freshdeskForbiddenError,
+    freshdeskNotFoundError,
+    freshdeskUnauthorizedError,
+)
+
 from tap_freshdesk.exceptions import freshdeskBadRequestError
 
 LOGGER = get_logger()
@@ -42,8 +48,8 @@ class BaseStream(ABC):
     def __init__(self, client=None, catalog=None) -> None:
         self.client = client
         self.catalog = catalog
-        self.schema = catalog.schema.to_dict()
-        self.metadata = metadata.to_map(catalog.metadata)
+        self.schema = catalog.schema.to_dict() if catalog else {}
+        self.metadata = metadata.to_map(catalog.metadata) if catalog else {}
         self.child_to_sync = []
         self.params = {}
 
@@ -177,6 +183,55 @@ class BaseStream(ABC):
     def get_url_endpoint(self, parent_obj: Dict = None) -> str:
         """Get the URL endpoint for the stream"""
         return self.url_endpoint
+
+    def check_access(self) -> bool:
+        """Verify that the API credentials have read access to this stream."""
+        endpoint = f"{self.client.base_url}/{self.path}"
+        params = {"per_page": 1, "page": 1}
+        try:
+            if self.parent:
+                from tap_freshdesk.streams import STREAMS
+
+                parent_stream = STREAMS[self.parent](client=self.client)
+                parent_endpoint = f"{self.client.base_url}/{parent_stream.path}"
+                parent_records = self.client.get(
+                    endpoint=parent_endpoint,
+                    params=params,
+                    headers=self.headers,
+                )
+
+                if not parent_records:
+                    LOGGER.warning(
+                        "Stream '%s' could not be probed because parent stream '%s' has no records.",
+                        self.tap_stream_id,
+                        self.parent,
+                    )
+                    return True
+
+                endpoint = f"{self.client.base_url}/{self.path.format(parent_records[0]['id'])}"
+
+            self.client.get(
+                endpoint=endpoint,
+                params=params,
+                headers=self.headers,
+            )
+            return True
+        except (freshdeskUnauthorizedError, freshdeskForbiddenError) as err:
+            LOGGER.warning(
+                "Permission Error: Stream '%s' - %s",
+                self.tap_stream_id,
+                err,
+            )
+            return False
+        except freshdeskNotFoundError as err:
+            if "Account not found for the provided domain" in str(err):
+                LOGGER.warning(
+                    "Permission Error: Stream '%s' - %s",
+                    self.tap_stream_id,
+                    err,
+                )
+                return False
+            raise
 
 
 class IncrementalStream(BaseStream):

@@ -79,6 +79,7 @@ class Client:
     def __init__(self, config: Mapping[str, Any]) -> None:
         self.config = config
         self._session = session()
+        self._credentials_validated = False
         domain = config.get("domain")
         self.base_url = f"https://{domain}.freshdesk.com/api/v2"
 
@@ -95,7 +96,15 @@ class Client:
         self._session.close()
 
     def check_api_credentials(self) -> None:
-        pass
+        if self._credentials_validated:
+            return
+
+        self.get(
+            endpoint=f"{self.base_url}/agents/me",
+            params={},
+            headers={"Accept": "application/json"},
+        )
+        self._credentials_validated = True
 
     def get(self, endpoint: str, params: Dict, headers: Dict, path: str = None) -> Any:
         """Calls the make_request method with a prefixed method type `GET`"""
