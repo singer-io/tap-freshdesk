@@ -443,10 +443,13 @@ class ParentBaseStream(IncrementalStream):
             }
         )
 
-        MAX_RESTARTS = 10  # Max number of retries if Freshdesk's 300 pages/30,000 ticket limit is hit
-        # Tracks IDs processed for the current updated_at timestamp
-        self.ids_cache = set()
-        self.current_timestamp_window = None
+        # Max number of retries if Freshdesk's 300 pages/30,000 ticket limit is hit
+        # This will make sure that we don't get stuck in an infinite loop if the limit is hit repeatedly
+        MAX_RESTARTS = 10
+
+        # Tracks IDs processed for the current bookmark window to avoid duplicates.
+        ids_cache = set()
+        current_timestamp_window = None
 
         with metrics.record_counter(self.tap_stream_id) as counter:
             filter_values = [{}, {"filter": "spam"}, {"filter": "deleted"}]
@@ -486,25 +489,27 @@ class ParentBaseStream(IncrementalStream):
 
                             record_timestamp = transformed_record[self.replication_keys[0]]
 
-                            # Timestamp window handling
+                            # Timestamp window handling.
+                            # If the timestamp changes, then we reset our cache of IDs to avoid duplicates.
+                            # This ensures that each record is processed only once within the same timestamp window.
                             # Example:
                             # 10:00 -> cache {1,2,3}
                             # 10:01 -> clear cache
                             # 10:02 -> clear cache
-                            if self.current_timestamp_window != record_timestamp:
+                            if current_timestamp_window != record_timestamp:
                                 LOGGER.info(
                                     "Moving timestamp window from %s to %s. "
                                     "Clearing ID cache.",
-                                    self.current_timestamp_window,
+                                    current_timestamp_window,
                                     record_timestamp,
                                 )
 
-                                self.current_timestamp_window = record_timestamp
-                                self.ids_cache.clear()
+                                current_timestamp_window = record_timestamp
+                                ids_cache.clear()
 
                             # Check if the record has already been synced using the ids_cache to avoid duplicates
                             cache_key = ticket_key + "_" + str(record["id"])
-                            if cache_key in self.ids_cache:
+                            if cache_key in ids_cache:
                                 LOGGER.info(
                                     "Skipping already processed ticket id=%s "
                                     "for timestamp=%s",
@@ -529,7 +534,7 @@ class ParentBaseStream(IncrementalStream):
                                         )
 
                                 # Add to cache ONLY after successful processing
-                                self.ids_cache.add(cache_key)
+                                ids_cache.add(cache_key)
 
                                 current_max_bookmark_date = max(
                                     current_max_bookmark_date, record_timestamp
@@ -546,8 +551,10 @@ class ParentBaseStream(IncrementalStream):
 
                     except freshdeskBadRequestError:
                         restart_count += 1
-                        # handle a freshdesk bad-request error. Then rerun the sync with the state set to current_max_bookmark_date.
+                        # Handle a freshdesk bad-request error. Then rerun the sync with the state set to current_max_bookmark_date.
                         # Ref: https://developers.freshdesk.com/api/#list_all_tickets
+                        # If number of restarts exceeds MAX_RESTARTS, the bookmark is advanced and
+                        # The next sync will start from the advanced bookmark.
                         LOGGER.warning(
                             "Freshdesk ticket limit reached for %s. "
                             "Restarting sync from bookmark %s "
@@ -557,6 +564,8 @@ class ParentBaseStream(IncrementalStream):
                             restart_count,
                             MAX_RESTARTS,
                         )
+
+                        # If the max restart attempts are reached, advance the bookmark and abort the sync.
                         if restart_count >= MAX_RESTARTS:
                             advanced_bookmark = strftime(
                                 strptime_to_utc(current_max_bookmark_date)
