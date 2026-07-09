@@ -190,13 +190,18 @@ class BaseStream(ABC):
         params = {"per_page": 1, "page": 1}
         try:
             if self.parent:
-                from tap_freshdesk.streams import STREAMS
+                from tap_freshdesk.streams import STREAMS  # To fix circular import
+                parent_params = {"per_page": 1, "page": 1}
+
+                if self.parent == "tickets":
+                    updated_since = self.get_bookmark({}, self.tap_stream_id)
+                    parent_params["updated_since"] = updated_since
 
                 parent_stream = STREAMS[self.parent](client=self.client)
                 parent_endpoint = f"{self.client.base_url}/{parent_stream.path}"
                 parent_records = self.client.get(
                     endpoint=parent_endpoint,
-                    params=params,
+                    params=parent_params,
                     headers=self.headers,
                 )
 
