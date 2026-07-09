@@ -10,10 +10,32 @@ from tap_freshdesk.exceptions import (
     ERROR_CODE_EXCEPTION_MAPPING,
     freshdeskError,
     freshdeskBackoffError,
+    freshdeskRateLimitError,
 )
 
 LOGGER = get_logger()
 REQUEST_TIMEOUT = 300
+
+
+def get_backoff_time(exception_info) -> float:
+    """ Extracts the retry_after information from the rate-limit exception and returns it.
+    """
+
+    retry_after = 60.0  # Default backoff time in seconds
+
+    exception = exception_info.get("exception") if isinstance(exception_info, dict) else exception_info
+
+    if exception and isinstance(exception, freshdeskRateLimitError):
+        actual_retry_after = exception.retry_after
+        if actual_retry_after is not None:
+            retry_after = actual_retry_after
+
+    LOGGER.warning(
+        "Freshdesk rate limit encountered. Retrying after %s seconds.",
+        retry_after,
+    )
+
+    return retry_after
 
 
 def raise_for_error(response: requests.Response) -> None:
@@ -57,6 +79,7 @@ class Client:
     def __init__(self, config: Mapping[str, Any]) -> None:
         self.config = config
         self._session = session()
+        self._credentials_validated = False
         domain = config.get("domain")
         self.base_url = f"https://{domain}.freshdesk.com/api/v2"
 
@@ -73,7 +96,15 @@ class Client:
         self._session.close()
 
     def check_api_credentials(self) -> None:
-        pass
+        if self._credentials_validated:
+            return
+
+        self.get(
+            endpoint=f"{self.base_url}/agents/me",
+            params={},
+            headers={"Accept": "application/json"},
+        )
+        self._credentials_validated = True
 
     def get(self, endpoint: str, params: Dict, headers: Dict, path: str = None) -> Any:
         """Calls the make_request method with a prefixed method type `GET`"""
@@ -111,6 +142,16 @@ class Client:
         ),
         max_tries=5,
         factor=2,
+        # Do not re-retry rate-limit errors that already exhausted the inner
+        # runtime-backoff decorator; let them propagate immediately.
+        giveup=lambda e: isinstance(e, freshdeskRateLimitError),
+    )
+    @backoff.on_exception(
+        wait_gen=backoff.runtime,
+        exception=freshdeskRateLimitError,
+        value=get_backoff_time,
+        max_tries=5,
+        jitter=None
     )
     def __make_request(
         self, method: str, endpoint: str, **kwargs
