@@ -443,8 +443,9 @@ class ParentBaseStream(IncrementalStream):
             }
         )
 
-        # Max number of retries if Freshdesk's 300 pages/30,000 ticket limit is hit
-        # This will make sure that we don't get stuck in an infinite loop if the limit is hit repeatedly
+        # Maximum number of retries when the Freshdesk Tickets API limit
+        # (300 pages / 30,000 tickets) is reached.
+        # This prevents the sync from entering an infinite retry loop if the limit is encountered repeatedly.
         MAX_RESTARTS = 10
 
         # Tracks IDs processed for the current bookmark window to avoid duplicates.
@@ -461,10 +462,11 @@ class ParentBaseStream(IncrementalStream):
                         self.tap_stream_id
                     )  # Default key when value is None or empty
 
-                # Added a workflow with try/except to handle Freshdesk's ticket endpoint limitation.
-                # The Tickets endpoint returns a maximum of 300 pages (30,000 tickets).
-                # If a request would exceed this limit, the API returns a 400 error.
-                # Ref: https://developers.freshdesk.com/api/#list_all_tickets
+                # Added a try/except workflow to gracefully handle the Freshdesk Tickets API limit.
+                # The Tickets endpoint returns a maximum of 300 pages (30,000 tickets) in a single request.
+                # Requests exceeding this limit result in a 400 response, so we catch the error
+                # and handle it to allow the sync to continue from the appropriate bookmark.
+                # Reference: https://developers.freshdesk.com/api/#list_all_tickets
                 restart_count = 0  # Counter check for max 400 error retries
                 sync_completed = False  # Flag to handle the while loop
 
@@ -489,9 +491,9 @@ class ParentBaseStream(IncrementalStream):
 
                             record_timestamp = transformed_record[self.replication_keys[0]]
 
-                            # Timestamp window handling.
-                            # If the timestamp changes, then we reset our cache of IDs to avoid duplicates.
-                            # This ensures that each record is processed only once within the same timestamp window.
+                            # Handle records grouped by timestamp.
+                            # Reset the cached IDs whenever the timestamp changes to ensure
+                            # each record is processed only once within a given timestamp.
                             # Example:
                             # 10:00 -> cache {1,2,3}
                             # 10:01 -> clear cache
@@ -551,14 +553,19 @@ class ParentBaseStream(IncrementalStream):
 
                     except freshdeskBadRequestError:
                         restart_count += 1
-                        # Handle a freshdesk bad-request error. Then rerun the sync with the state set to current_max_bookmark_date.
+                        # Handle a Freshdesk bad request error by restarting the sync with the
+                        # bookmark reset to current_max_bookmark_date.
                         # Ref: https://developers.freshdesk.com/api/#list_all_tickets
-                        # If number of restarts exceeds MAX_RESTARTS, the bookmark is advanced and
-                        # The next sync will start from the advanced bookmark.
-                        # Scenario:
-                        # If the bookmark is set to a timestamp where there are more than 30,000 tickets, the sync will fail again.
-                        # We will keep hitting the same API with the same parameters.
-                        # To avoid this, we will advance the bookmark by 1 second and abort the sync. (A corner case)
+                        #
+                        # If the number of restart attempts exceeds MAX_RESTARTS, advance the
+                        # bookmark and terminate the current sync. The next sync will resume from
+                        # the updated bookmark.
+                        #
+                        # Corner case:
+                        # If the bookmark points to a timestamp with more than 30,000 tickets,
+                        # every retry will fail because the API request parameters remain
+                        # unchanged. To prevent an endless retry loop, advance the bookmark by
+                        # one second and abort the current sync.
 
                         LOGGER.warning(
                             "Freshdesk ticket limit reached for %s. "
