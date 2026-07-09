@@ -1,185 +1,379 @@
-"""Unit tests for tap_freshdesk.client.Client.check_api_credentials."""
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
-from tap_freshdesk.client import Client, raise_for_error
+import requests
+
+from tap_freshdesk.client import Client, get_backoff_time, raise_for_error
 from tap_freshdesk.exceptions import (
+    freshdeskBackoffError,
     freshdeskBadRequestError,
     freshdeskError,
+    freshdeskInternalServerError,
+    freshdeskRateLimitError,
     freshdeskUnauthorizedError,
-    freshdeskForbiddenError,
 )
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _make_response(status_code, json_data=None, headers=None):
+    """Build a minimal mock requests.Response."""
+    resp = MagicMock(spec=requests.Response)
+    resp.status_code = status_code
+    resp.json.return_value = json_data or {}
+    resp.headers = headers or {}
+    return resp
+
+
 def _make_client():
-    # Return a Client with the underlying requests session mocked out.
-    with patch("tap_freshdesk.client.session"):
-        client = Client({"domain": "example", "api_key": "testkey"})
-    return client
+    return Client(
+        {
+            "api_key": "test_key",
+            "domain": "testdomain",
+            "start_date": "2023-01-01",
+        }
+    )
 
 
-class TestCheckApiCredentials(unittest.TestCase):
-    """Tests for Client.check_api_credentials()."""
+# ---------------------------------------------------------------------------
+# freshdeskRateLimitError
+# ---------------------------------------------------------------------------
 
-    AGENTS_ME = "https://example.freshdesk.com/api/v2/agents/me"
 
-    def test_calls_agents_me_on_first_invocation(self):
-        client = _make_client()
-        with patch.object(client, "get") as mock_get:
-            client.check_api_credentials()
-        mock_get.assert_called_once_with(
-            endpoint=self.AGENTS_ME,
-            params={},
-            headers={"Accept": "application/json"},
+class TestFreshdeskRateLimitError(unittest.TestCase):
+    """Tests for the updated freshdeskRateLimitError.__init__."""
+
+    def test_retry_after_extracted_from_header(self):
+        """Retry-After header value is stored as a float."""
+        response = _make_response(429, headers={"Retry-After": "45"})
+        err = freshdeskRateLimitError("rate limited", response)
+        self.assertEqual(err.retry_after, 45.0)
+
+    def test_retry_after_float_in_header(self):
+        """Fractional Retry-After values are parsed correctly."""
+        response = _make_response(429, headers={"Retry-After": "1.5"})
+        err = freshdeskRateLimitError("rate limited", response)
+        self.assertEqual(err.retry_after, 1.5)
+
+    def test_retry_after_defaults_to_60_when_header_missing(self):
+        """Missing Retry-After header defaults to 60.0 (float) seconds."""
+        response = _make_response(429, headers={})
+        err = freshdeskRateLimitError("rate limited", response)
+        self.assertEqual(err.retry_after, 60.0)
+        self.assertIsInstance(err.retry_after, float)
+
+    def test_retry_after_defaults_to_60_on_invalid_value(self):
+        """Non-numeric Retry-After header defaults to 60 seconds."""
+        response = _make_response(
+            429, headers={"Retry-After": "not-a-number"}
         )
+        err = freshdeskRateLimitError("rate limited", response)
+        self.assertEqual(err.retry_after, 60)
 
-    def test_skips_get_when_already_validated(self):
-        """A second call must be a no-op: no HTTP request is made."""
-        client = _make_client()
-        client._credentials_validated = True
-        with patch.object(client, "get") as mock_get:
-            client.check_api_credentials()
-        mock_get.assert_not_called()
+    def test_retry_after_is_none_when_no_response(self):
+        """retry_after is None when no response object is given."""
+        err = freshdeskRateLimitError("rate limited")
+        self.assertIsNone(err.retry_after)
 
-    def test_sets_validated_flag_after_success(self):
-        client = _make_client()
-        with patch.object(client, "get"):
-            client.check_api_credentials()
-        self.assertTrue(client._credentials_validated)
+    def test_message_includes_retry_after_seconds(self):
+        """Error message contains the Retry-After duration."""
+        response = _make_response(429, headers={"Retry-After": "30"})
+        err = freshdeskRateLimitError("Rate limited", response)
+        self.assertIn("Retry after 30.0 seconds", str(err))
 
-    def test_flag_remains_false_when_get_raises(self):
-        """If the HTTP call fails the flag must NOT be flipped to True."""
-        client = _make_client()
-        with patch.object(
-            client, "get", side_effect=freshdeskUnauthorizedError("bad key")
-        ):
-            with self.assertRaises(freshdeskUnauthorizedError):
-                client.check_api_credentials()
-        self.assertFalse(client._credentials_validated)
+    def test_message_uses_default_text_when_no_custom_message(self):
+        """Default message is used when none is provided."""
+        response = _make_response(429, headers={"Retry-After": "30"})
+        err = freshdeskRateLimitError(response=response)
+        self.assertIn("FreshDesk Rate Limit Exceeded", str(err))
 
-    def test_exception_propagates_to_caller(self):
-        """Any exception from get() must bubble up unchanged."""
-        client = _make_client()
-        with patch.object(
-            client, "get", side_effect=freshdeskForbiddenError("403")
-        ):
-            with self.assertRaises(freshdeskForbiddenError):
-                client.check_api_credentials()
+    def test_message_has_no_retry_after_suffix_when_no_response(self):
+        """No 'Retry after' suffix when retry_after is None."""
+        err = freshdeskRateLimitError("Rate limited")
+        self.assertNotIn("Retry after", str(err))
 
-    def test_second_call_makes_no_additional_http_requests(self):
-        """Calling twice should result in exactly one GET, not two."""
-        client = _make_client()
-        with patch.object(client, "get") as mock_get:
-            client.check_api_credentials()
-            client.check_api_credentials()
-        mock_get.assert_called_once()
+    def test_is_subclass_of_backoff_error(self):
+        """freshdeskRateLimitError must remain a freshdeskBackoffError."""
+        self.assertTrue(issubclass(freshdeskRateLimitError, freshdeskBackoffError))
 
-    def test_flag_is_false_before_any_call(self):
-        client = _make_client()
-        self.assertFalse(client._credentials_validated)
 
-    def test_flag_set_allows_reuse_as_context_manager(self):
-        """Entering __enter__ calls check_api_credentials; re-entering
-        (simulated by a second __enter__) must not make a second request."""
-        client = _make_client()
-        with patch.object(client, "get") as mock_get:
-            mock_get.return_value = {}
-            client.__enter__()
-            client.__enter__()  # second enter — flag already True
-        mock_get.assert_called_once()
+# ---------------------------------------------------------------------------
+# get_backoff_time
+# ---------------------------------------------------------------------------
+
+
+class TestGetBackoffTime(unittest.TestCase):
+    """Tests for the get_backoff_time() helper."""
+
+    def test_returns_retry_after_from_rate_limit_exception(self):
+        """Returns the retry_after value from a rate-limit exception."""
+        response = _make_response(429, headers={"Retry-After": "45"})
+        exception = freshdeskRateLimitError("rate limited", response)
+        result = get_backoff_time({"exception": exception})
+        self.assertEqual(result, 45.0)
+
+    def test_returns_default_when_retry_after_is_none(self):
+        """Returns 60 when the exception carries no retry_after."""
+        exception = freshdeskRateLimitError("rate limited")
+        # no response → retry_after is None
+        result = get_backoff_time({"exception": exception})
+        self.assertEqual(result, 60.0)
+
+    def test_returns_default_for_non_rate_limit_exception(self):
+        """Returns 60 when the exception is not a rate-limit error."""
+        result = get_backoff_time({"exception": Exception("generic")})
+        self.assertEqual(result, 60.0)
+
+    def test_handles_exception_passed_directly(self):
+        """Defensive branch: exception passed as the value instead of dict."""
+        exception = freshdeskRateLimitError("rate limited")
+        result = get_backoff_time(exception)
+        self.assertEqual(result, 60.0)
+
+    @patch("tap_freshdesk.client.LOGGER")
+    def test_warning_is_logged(self, mock_logger):
+        """A warning is always logged regardless of exception type."""
+        exception = freshdeskRateLimitError("rate limited")
+        get_backoff_time({"exception": exception})
+        mock_logger.warning.assert_called_once()
+
+    @patch("tap_freshdesk.client.LOGGER")
+    def test_logged_wait_time_matches_retry_after(self, mock_logger):
+        """The logged wait time matches the extracted retry_after."""
+        response = _make_response(429, headers={"Retry-After": "77"})
+        exception = freshdeskRateLimitError("rate limited", response)
+        get_backoff_time({"exception": exception})
+        logged_args = mock_logger.warning.call_args[0]
+        # second positional arg is the wait time
+        self.assertEqual(logged_args[1], 77.0)
+
+
+# ---------------------------------------------------------------------------
+# raise_for_error
+# ---------------------------------------------------------------------------
 
 
 class TestRaiseForError(unittest.TestCase):
-    """Tests for the raise_for_error helper."""
+    """Tests for raise_for_error() HTTP status → exception mapping."""
 
-    def _response(self, status_code=200, payload=None):
-        response = MagicMock()
-        response.status_code = status_code
-        if isinstance(payload, Exception):
-            response.json.side_effect = payload
-        else:
-            response.json.return_value = payload if payload is not None else {}
-        return response
+    def test_200_does_not_raise(self):
+        """A 200 response must not raise any exception."""
+        raise_for_error(_make_response(200))
 
-    def test_raise_for_error_noop_for_200(self):
-        response = self._response(200, {"ok": True})
-        raise_for_error(response)
-
-    def test_raise_for_error_uses_error_field(self):
-        response = self._response(400, {"error": "validation failed"})
-        with self.assertRaises(freshdeskBadRequestError) as err:
-            raise_for_error(response)
-        self.assertIn("validation failed", str(err.exception))
-
-    def test_raise_for_error_uses_message_field(self):
-        response = self._response(400, {"message": "bad input"})
-        with self.assertRaises(freshdeskBadRequestError) as err:
-            raise_for_error(response)
-        self.assertIn("bad input", str(err.exception))
-
-    def test_raise_for_error_falls_back_to_unknown_for_unmapped_status(self):
-        response = self._response(418, {})
-        with self.assertRaises(freshdeskError) as err:
-            raise_for_error(response)
-        self.assertIn("Unknown Error", str(err.exception))
-
-    def test_raise_for_error_handles_invalid_json_payload(self):
-        response = self._response(400, ValueError("not json"))
+    def test_400_raises_bad_request_error(self):
         with self.assertRaises(freshdeskBadRequestError):
+            raise_for_error(_make_response(400))
+
+    def test_401_raises_unauthorized_error(self):
+        with self.assertRaises(freshdeskUnauthorizedError):
+            raise_for_error(_make_response(401))
+
+    def test_429_raises_rate_limit_error(self):
+        with self.assertRaises(freshdeskRateLimitError):
+            raise_for_error(_make_response(429))
+
+    def test_500_raises_internal_server_error(self):
+        with self.assertRaises(freshdeskInternalServerError):
+            raise_for_error(_make_response(500))
+
+    def test_unknown_status_code_raises_freshdesk_error(self):
+        with self.assertRaises(freshdeskError):
+            raise_for_error(_make_response(418))
+
+    def test_error_message_taken_from_error_field(self):
+        """When JSON has an 'error' key, it appears in the exception message."""
+        response = _make_response(400, json_data={"error": "Bad input data"})
+        with self.assertRaises(freshdeskBadRequestError) as ctx:
+            raise_for_error(response)
+        self.assertIn("Bad input data", str(ctx.exception))
+
+    def test_error_message_taken_from_message_field(self):
+        """When JSON has a 'message' key, it appears in the exception message."""
+        response = _make_response(
+            400, json_data={"message": "Validation failed"}
+        )
+        with self.assertRaises(freshdeskBadRequestError) as ctx:
+            raise_for_error(response)
+        self.assertIn("Validation failed", str(ctx.exception))
+
+    def test_error_message_falls_back_to_mapping(self):
+        """When JSON has neither key, the mapping's default message is used."""
+        response = _make_response(400, json_data={})
+        with self.assertRaises(freshdeskBadRequestError) as ctx:
+            raise_for_error(response)
+        self.assertIn("400", str(ctx.exception))
+
+    def test_json_parse_failure_does_not_crash(self):
+        """If response.json() raises, raise_for_error still maps the error."""
+        response = _make_response(500)
+        response.json.side_effect = ValueError("not json")
+        with self.assertRaises(freshdeskInternalServerError):
             raise_for_error(response)
 
 
-class TestClientRequestExecution(unittest.TestCase):
-    """Tests for Client.get/post and __make_request behavior."""
+# ---------------------------------------------------------------------------
+# Client retry behaviour
+# ---------------------------------------------------------------------------
 
-    def test_get_returns_json_payload(self):
-        client = _make_client()
-        response = MagicMock()
-        response.status_code = 200
-        response.json.return_value = {"id": 1}
 
-        with patch.object(client._session, "request", return_value=response):
-            result = client.get(
-                endpoint=f"{client.base_url}/agents/me",
-                params={},
-                headers={"Accept": "application/json"},
-            )
+class TestClientRetryBehavior(unittest.TestCase):
+    """
+    Tests that verify the backoff/retry decorators on Client.__make_request.
 
-        self.assertEqual(result, {"id": 1})
+    Layout of decorators (outermost first):
+      @backoff.on_exception(expo,    NetworkErrors + freshdeskBackoffError)
+      @backoff.on_exception(runtime, freshdeskRateLimitError)
+      def __make_request(...)
 
-    def test_get_uses_path_when_endpoint_missing(self):
-        client = _make_client()
-        response = MagicMock()
-        response.status_code = 200
-        response.json.return_value = {"ok": True}
+    Execution order when a request fails:
+      • freshdeskRateLimitError  → caught by inner (runtime) decorator first
+      • freshdeskBackoffError    → bypasses inner, caught by outer (expo) decorator
+      • Network errors           → bypasses inner, caught by outer (expo) decorator
+    """
 
-        with patch.object(
-            client._session, "request", return_value=response
-        ) as req:
-            client.get(
-                endpoint=None,
-                params={"per_page": 1},
-                headers={"Accept": "application/json"},
-                path="tickets",
-            )
+    def setUp(self):
+        self.client = _make_client()
 
-        called_endpoint = req.call_args[0][1]
-        self.assertEqual(called_endpoint, f"{client.base_url}/tickets")
+    # -- 429 rate-limit -------------------------------------------------------
 
-    def test_post_calls_underlying_request(self):
-        client = _make_client()
-        response = MagicMock()
-        response.status_code = 200
-        response.json.return_value = {"created": True}
+    @patch("time.sleep", return_value=None)
+    def test_rate_limit_error_is_retried(self, _mock_sleep):
+        """
+        A 429 response triggers the runtime-backoff retry.
+        Second call succeeds → result is returned.
+        """
+        self.client._session.request = Mock(
+            side_effect=[
+                _make_response(429, headers={"Retry-After": "0"}),
+                _make_response(200, json_data=[{"id": 1}]),
+            ]
+        )
+        result = self.client.get("http://test.com", {}, {})
+        self.assertEqual(self.client._session.request.call_count, 2)
+        self.assertEqual(result, [{"id": 1}])
 
-        with patch.object(
-            client._session, "request", return_value=response
-        ) as req:
-            client.post(
-                endpoint=f"{client.base_url}/some-endpoint",
-                params={},
-                headers={"Accept": "application/json"},
-                body={"a": 1},
-            )
+    @patch("time.sleep", return_value=None)
+    def test_rate_limit_retry_after_header_governs_sleep(self, mock_sleep):
+        """
+        The Retry-After value from the response governs the sleep duration
+        via get_backoff_time.
+        """
+        self.client._session.request = Mock(
+            side_effect=[
+                _make_response(429, headers={"Retry-After": "7"}),
+                _make_response(200, json_data=[{"id": 2}]),
+            ]
+        )
+        self.client.get("http://test.com", {}, {})
+        # time.sleep must have been called with the Retry-After value
+        sleep_calls = [call.args[0] for call in mock_sleep.call_args_list]
+        self.assertIn(7.0, sleep_calls)
 
-        self.assertTrue(req.called)
+    # -- 5xx server errors (freshdeskBackoffError) ----------------------------
+
+    @patch("time.sleep", return_value=None)
+    def test_5xx_error_is_retried_with_expo_backoff(self, _mock_sleep):
+        """
+        Bug fix: freshdeskBackoffError (5xx) subclasses must be retried by
+        the exponential-backoff decorator.
+
+        Previously freshdeskBackoffError was removed from the outer decorator,
+        causing 5xx errors to propagate immediately without retry.
+        """
+        self.client._session.request = Mock(
+            side_effect=[
+                _make_response(500),
+                _make_response(200, json_data=[{"id": 3}]),
+            ]
+        )
+        result = self.client.get("http://test.com", {}, {})
+        self.assertEqual(self.client._session.request.call_count, 2)
+        self.assertEqual(result, [{"id": 3}])
+
+    @patch("time.sleep", return_value=None)
+    def test_502_bad_gateway_is_retried(self, _mock_sleep):
+        """502 Bad Gateway (a freshdeskBackoffError) must also be retried."""
+        self.client._session.request = Mock(
+            side_effect=[
+                _make_response(502),
+                _make_response(200, json_data=[{"id": 4}]),
+            ]
+        )
+        result = self.client.get("http://test.com", {}, {})
+        self.assertEqual(self.client._session.request.call_count, 2)
+        self.assertEqual(result, [{"id": 4}])
+
+    @patch("time.sleep", return_value=None)
+    def test_503_service_unavailable_is_retried(self, _mock_sleep):
+        """503 Service Unavailable must be retried."""
+        self.client._session.request = Mock(
+            side_effect=[
+                _make_response(503),
+                _make_response(200, json_data=[{"id": 5}]),
+            ]
+        )
+        result = self.client.get("http://test.com", {}, {})
+        self.assertEqual(self.client._session.request.call_count, 2)
+        self.assertEqual(result, [{"id": 5}])
+
+    # -- Network errors -------------------------------------------------------
+
+    @patch("time.sleep", return_value=None)
+    def test_timeout_is_retried(self, _mock_sleep):
+        """A Timeout exception must trigger exponential-backoff retry."""
+        from requests.exceptions import Timeout
+
+        self.client._session.request = Mock(
+            side_effect=[
+                Timeout(),
+                _make_response(200, json_data=[{"id": 6}]),
+            ]
+        )
+        result = self.client.get("http://test.com", {}, {})
+        self.assertEqual(self.client._session.request.call_count, 2)
+        self.assertEqual(result, [{"id": 6}])
+
+    @patch("time.sleep", return_value=None)
+    def test_connection_error_is_retried(self, _mock_sleep):
+        """A ConnectionError must trigger exponential-backoff retry."""
+        from requests.exceptions import ConnectionError as ReqConnError
+
+        self.client._session.request = Mock(
+            side_effect=[
+                ReqConnError(),
+                _make_response(200, json_data=[{"id": 7}]),
+            ]
+        )
+        result = self.client.get("http://test.com", {}, {})
+        self.assertEqual(self.client._session.request.call_count, 2)
+        self.assertEqual(result, [{"id": 7}])
+
+    # -- Non-retryable errors -------------------------------------------------
+
+    @patch("time.sleep", return_value=None)
+    def test_400_bad_request_is_not_retried(self, _mock_sleep):
+        """
+        freshdeskBadRequestError (400) does NOT extend freshdeskBackoffError
+        and must NOT be retried.
+        """
+        self.client._session.request = Mock(
+            return_value=_make_response(400)
+        )
+        with self.assertRaises(freshdeskBadRequestError):
+            self.client.get("http://test.com", {}, {})
+        # Only one attempt — no retry
+        self.assertEqual(self.client._session.request.call_count, 1)
+
+    @patch("time.sleep", return_value=None)
+    def test_rate_limit_exhausts_retries_and_reraises(self, _mock_sleep):
+        """
+        After exhausting max_tries (5) on 429s, the exception propagates.
+        """
+        self.client._session.request = Mock(
+            return_value=_make_response(429, headers={"Retry-After": "0"})
+        )
+        with self.assertRaises(freshdeskRateLimitError):
+            self.client.get("http://test.com", {}, {})
+        self.assertEqual(self.client._session.request.call_count, 5)

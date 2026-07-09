@@ -213,6 +213,15 @@ class FreshdeskBaseTest(BaseCase):
             if not metadata.get(cls.IS_FORBIDDEN_STREAM, False)
         }
 
+    @classmethod
+    def expected_stream_names(cls):
+        """A set of expected stream names"""
+        return {
+            stream_name
+            for stream_name, metadata in cls.expected_metadata().items()
+            if not metadata.get(cls.IS_FORBIDDEN_STREAM, False)
+        }
+
     @staticmethod
     def get_credentials():
         """Authentication information for the test account."""

@@ -4,6 +4,7 @@
   * Added per-stream access checks during discovery; streams returning 401 Unauthorized or 403 Forbidden are excluded from the catalog [#66](https://github.com/singer-io/tap-freshdesk/pull/66)
   * Adds `parent-tap-stream-id` field to catalog [#64](https://github.com/singer-io/tap-freshdesk/pull/64)
   * singer-python upgrade to 6.8.0
+  * Handle the Freshdesk tickets endpoint's 400 and 429 errors [#69](https://github.com/singer-io/tap-freshdesk/pull/69)
 
 # 1.0.1
   * Bump requests to 2.33.0 for security updates [#66](https://github.com/singer-io/tap-freshdesk/pull/66)

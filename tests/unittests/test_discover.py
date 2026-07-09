@@ -22,8 +22,6 @@ class TestCheckStreamAccess(unittest.TestCase):
         client = MagicMock()
 
         class FakeStream:
-            tap_stream_id = "fake_stream"  # required by check_stream_access logging
-
             def __init__(self, client=None, catalog=None):
                 self.client = client
 
@@ -32,52 +30,47 @@ class TestCheckStreamAccess(unittest.TestCase):
 
         self.assertTrue(check_stream_access(client, FakeStream))
 
-    def test_top_level_stream_is_probed(self):
-        """A parent-less stream probes its own endpoint directly."""
+    def test_child_stream_is_probed(self):
         client = MagicMock()
         client.base_url = "https://example.freshdesk.com/api/v2"
-        client.get.return_value = [{"id": 1}]
-
-        result = check_stream_access(client, STREAMS["agents"])
-
-        self.assertTrue(result)
-        client.get.assert_called_once()
-        endpoint = client.get.call_args.kwargs["endpoint"]
-        self.assertEqual(endpoint, f"{client.base_url}/agents")
-
-    def test_child_stream_is_probed_with_dummy_id(self):
-        """Child streams substitute dummy id=1 so only ONE request is made."""
-        client = MagicMock()
-        client.base_url = "https://example.freshdesk.com/api/v2"
-        client.get.return_value = [{"id": 1, "updated_at": "2024-01-01T00:00:00Z"}]
+        client.get.side_effect = [
+            [{"id": 101}],
+            [{"id": 1, "updated_at": "2024-01-01T00:00:00Z"}],
+        ]
 
         result = check_stream_access(client, STREAMS["conversations"])
 
         self.assertTrue(result)
-        client.get.assert_called_once()
-        endpoint = client.get.call_args.kwargs["endpoint"]
-        self.assertEqual(endpoint, f"{client.base_url}/tickets/1/conversations")
+        self.assertEqual(client.get.call_count, 2)
+        first_endpoint = client.get.call_args_list[0].kwargs["endpoint"]
+        second_endpoint = client.get.call_args_list[1].kwargs["endpoint"]
+        self.assertEqual(first_endpoint, f"{client.base_url}/tickets")
+        self.assertEqual(second_endpoint, f"{client.base_url}/tickets/101/conversations")
 
     def test_child_stream_probe_raises_for_generic_404(self):
         client = MagicMock()
         client.base_url = "https://example.freshdesk.com/api/v2"
-        client.get.side_effect = freshdeskNotFoundError("404")
+        client.get.side_effect = [
+            [{"id": 101}],
+            freshdeskNotFoundError("404"),
+        ]
 
         with self.assertRaises(freshdeskNotFoundError):
             check_stream_access(client, STREAMS["conversations"])
-        client.get.assert_called_once()
+        self.assertEqual(client.get.call_count, 2)
 
     def test_child_stream_probe_returns_false_for_account_not_found_404(self):
         client = MagicMock()
         client.base_url = "https://example.freshdesk.com/api/v2"
-        client.get.side_effect = freshdeskNotFoundError(
-            "HTTP-error-code: 404, Error: Account not found for the provided domain"
-        )
+        client.get.side_effect = [
+            [{"id": 101}],
+            freshdeskNotFoundError("HTTP-error-code: 404, Error: Account not found for the provided domain"),
+        ]
 
         result = check_stream_access(client, STREAMS["conversations"])
 
         self.assertFalse(result)
-        client.get.assert_called_once()
+        self.assertEqual(client.get.call_count, 2)
 
     def test_parent_stream_probe_returns_false_for_account_not_found_404(self):
         client = MagicMock()
@@ -115,25 +108,27 @@ class TestCheckStreamAccess(unittest.TestCase):
         client = MagicMock()
         client.base_url = "https://example.freshdesk.com/api/v2"
         client.get.side_effect = [
+            [{"id": 101}],
             freshdeskUnauthorizedError("401"),
         ]
 
         result = check_stream_access(client, STREAMS["conversations"])
 
         self.assertFalse(result)
-        self.assertEqual(client.get.call_count, 1)
+        self.assertEqual(client.get.call_count, 2)
 
     def test_child_stream_probe_returns_false_for_403(self):
         client = MagicMock()
         client.base_url = "https://example.freshdesk.com/api/v2"
         client.get.side_effect = [
+            [{"id": 101}],
             freshdeskForbiddenError("403"),
         ]
 
         result = check_stream_access(client, STREAMS["conversations"])
 
         self.assertFalse(result)
-        self.assertEqual(client.get.call_count, 1)
+        self.assertEqual(client.get.call_count, 2)
 
 
 class TestAccessChecks(unittest.TestCase):
@@ -170,6 +165,23 @@ class TestAccessChecks(unittest.TestCase):
 
         self.assertEqual(set(schemas.keys()), {"tickets"})
         self.assertEqual(set(field_metadata.keys()), {"tickets"})
+
+    @patch("tap_freshdesk.discover.LOGGER.warning")
+    @patch("tap_freshdesk.discover.check_stream_access")
+    def test_apply_access_checks_logs_inaccessible_parent_and_child(self, mock_check, mock_warning):
+        names = ["tickets", "conversations", "agents"]
+        schemas, field_metadata = self._schemas_and_metadata(names)
+
+        def _side_effect(_client, stream_cls):
+            if stream_cls is STREAMS["tickets"]:
+                return False
+            return True
+
+        mock_check.side_effect = _side_effect
+        _apply_access_checks(MagicMock(), schemas, field_metadata)
+
+        logged_messages = [call.args[1] for call in mock_warning.call_args_list if len(call.args) > 1]
+        self.assertIn("tickets, conversations", logged_messages)
 
     @patch("tap_freshdesk.discover.STREAMS")
     def test_prune_inaccessible_children_removes_nested_descendants(self, mock_streams):

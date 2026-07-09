@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import timedelta
 from typing import Any, Dict, Tuple, List
 import copy
 
@@ -21,6 +22,8 @@ from tap_freshdesk.exceptions import (
     freshdeskNotFoundError,
     freshdeskUnauthorizedError,
 )
+
+from tap_freshdesk.exceptions import freshdeskBadRequestError
 
 LOGGER = get_logger()
 
@@ -250,8 +253,31 @@ class BaseStream(ABC):
         endpoint = f"{self.client.base_url}/{self.path}"
         params = {"per_page": 1, "page": 1}
         try:
-            if self.parent:  # If the stream has a parent, add a dummy id in path
-                endpoint = f"{self.client.base_url}/{self.path.format(1)}"
+            if self.parent:
+                from tap_freshdesk.streams import STREAMS  # To fix circular import
+                parent_params = {"per_page": 1, "page": 1}
+
+                if self.parent == "tickets":
+                    updated_since = self.get_bookmark({}, self.tap_stream_id)
+                    parent_params["updated_since"] = updated_since
+
+                parent_stream = STREAMS[self.parent](client=self.client)
+                parent_endpoint = f"{self.client.base_url}/{parent_stream.path}"
+                parent_records = self.client.get(
+                    endpoint=parent_endpoint,
+                    params=parent_params,
+                    headers=self.headers,
+                )
+
+                if not parent_records:
+                    LOGGER.warning(
+                        "Stream '%s' could not be probed because parent stream '%s' has no records.",
+                        self.tap_stream_id,
+                        self.parent,
+                    )
+                    return True
+
+                endpoint = f"{self.client.base_url}/{self.path.format(parent_records[0]['id'])}"
 
             self.client.get(
                 endpoint=endpoint,
@@ -269,7 +295,7 @@ class BaseStream(ABC):
         except freshdeskNotFoundError as err:
             if "Account not found for the provided domain" in str(err):
                 LOGGER.warning(
-                    "API not found Error: Stream '%s' - %s",
+                    "Permission Error: Stream '%s' - %s",
                     self.tap_stream_id,
                     err,
                 )
@@ -357,9 +383,9 @@ class IncrementalStream(BaseStream):
             yield from raw_records
 
             if len(raw_records) == self.page_size:
-                LOGGER.info("Fetching Page %s", page_count)
                 page_count += 1
                 self.params["page"] = page_count
+                LOGGER.info("Fetching Page %s", page_count)
             else:
                 break
 
@@ -475,11 +501,11 @@ class ParentBaseStream(IncrementalStream):
         return state
 
     def sync(
-    self,
-    state: Dict,
-    transformer: Transformer,
-    parent_obj: Dict = None,
-) -> Dict:
+        self,
+        state: Dict,
+        transformer: Transformer,
+        parent_obj: Dict = None,
+    ) -> Dict:
         """Implementation for `type: Incremental` stream."""
         self.url_endpoint = self.get_url_endpoint(parent_obj)
 
@@ -492,6 +518,15 @@ class ParentBaseStream(IncrementalStream):
             }
         )
 
+        # Maximum number of retries when the Freshdesk Tickets API limit
+        # (300 pages / 30,000 tickets) is reached.
+        # This prevents the sync from entering an infinite retry loop if the limit is encountered repeatedly.
+        MAX_RESTARTS = 10
+
+        # Tracks IDs processed for the current bookmark window to avoid duplicates.
+        ids_cache = set()
+        current_timestamp_window = None
+
         with metrics.record_counter(self.tap_stream_id) as counter:
             filter_values = [{}, {"filter": "spam"}, {"filter": "deleted"}]
             for value in filter_values:
@@ -501,43 +536,154 @@ class ParentBaseStream(IncrementalStream):
                     ticket_key = (
                         self.tap_stream_id
                     )  # Default key when value is None or empty
-                current_max_bookmark_date = bookmark_date = updated_since = (
-                    self.get_bookmark(state, ticket_key)
-                )
-                self.params.update({"updated_since": updated_since})
-                self.params.update(**value)
-                for record in self.get_records(state):
-                    if "custom_fields" in record:
-                        record["custom_fields"] = self.modify_object_custom_fields(
-                            record["custom_fields"], force_to_string=True
-                        )
-                    transformed_record = transformer.transform(
-                        record, self.schema, self.metadata
+
+                # Added a try/except workflow to gracefully handle the Freshdesk Tickets API limit.
+                # The Tickets endpoint returns a maximum of 300 pages (30,000 tickets) in a single request.
+                # Requests exceeding this limit result in a 400 response, so we catch the error
+                # and handle it to allow the sync to continue from the appropriate bookmark.
+                # Reference: https://developers.freshdesk.com/api/#list_all_tickets
+                restart_count = 0  # Counter check for max 400 error retries
+                sync_completed = False  # Flag to handle the while loop
+
+                while not sync_completed:  # If the sync was interrupted, the core workflow will be resumed with updated state
+
+                    current_max_bookmark_date = bookmark_date = updated_since = (
+                        self.get_bookmark(state, ticket_key)
                     )
+                    self.params.update({"updated_since": updated_since})
+                    self.params.update(**value)
 
-                    record_timestamp = transformed_record[self.replication_keys[0]]
-                    if record_timestamp >= bookmark_date:
-                        # Only write parent records if parent is selected
-                        if self.is_selected():
-                            write_record(self.tap_stream_id, transformed_record)
-                            counter.increment()
+                    try:
+                        for record in self.get_records(state):
 
-                        # Sync only selected child streams
-                        for child in self.child_to_sync:
-                            if self.is_child_selected(child):
-                                child.sync(
-                                    state=state,
-                                    transformer=transformer,
-                                    parent_obj=record
+                            if "custom_fields" in record:
+                                record["custom_fields"] = self.modify_object_custom_fields(
+                                    record["custom_fields"], force_to_string=True
+                                )
+                            transformed_record = transformer.transform(
+                                record, self.schema, self.metadata
+                            )
+
+                            record_timestamp = transformed_record[self.replication_keys[0]]
+
+                            # Handle records grouped by timestamp.
+                            # Reset the cached IDs whenever the timestamp changes to ensure
+                            # each record is processed only once within a given timestamp.
+                            # Example:
+                            # 10:00 -> cache {1,2,3}
+                            # 10:01 -> clear cache
+                            # 10:02 -> clear cache
+                            if current_timestamp_window != record_timestamp:
+                                LOGGER.info(
+                                    "Moving timestamp window from %s to %s. "
+                                    "Clearing ID cache.",
+                                    current_timestamp_window,
+                                    record_timestamp,
                                 )
 
-                        current_max_bookmark_date = max(
-                            current_max_bookmark_date, record_timestamp
+                                current_timestamp_window = record_timestamp
+                                ids_cache.clear()
+
+                            # Check if the record has already been synced using the ids_cache to avoid duplicates
+                            cache_key = ticket_key + "_" + str(record["id"])
+                            if cache_key in ids_cache:
+                                LOGGER.info(
+                                    "Skipping already processed ticket id=%s "
+                                    "for timestamp=%s",
+                                    cache_key,
+                                    record_timestamp,
+                                )
+                                continue
+
+                            if record_timestamp >= bookmark_date:
+                                # Only write parent records if parent is selected
+                                if self.is_selected():
+                                    write_record(self.tap_stream_id, transformed_record)
+                                    counter.increment()
+
+                                # Sync only selected child streams
+                                for child in self.child_to_sync:
+                                    if self.is_child_selected(child):
+                                        child.sync(
+                                            state=state,
+                                            transformer=transformer,
+                                            parent_obj=record
+                                        )
+
+                                # Add to cache ONLY after successful processing
+                                ids_cache.add(cache_key)
+
+                                current_max_bookmark_date = max(
+                                    current_max_bookmark_date, record_timestamp
+                                )
+
+                        # Sync completed successfully.
+                        state = self.write_bookmark(
+                            state,
+                            ticket_key,
+                            value=current_max_bookmark_date,
                         )
 
-                state = self.write_bookmark(
-                    state, ticket_key, value=current_max_bookmark_date
-                )
+                        sync_completed = True
+
+                    except freshdeskBadRequestError:
+                        restart_count += 1
+                        # Handle a Freshdesk bad request error by restarting the sync with the
+                        # bookmark reset to current_max_bookmark_date.
+                        # Ref: https://developers.freshdesk.com/api/#list_all_tickets
+                        #
+                        # If the number of restart attempts exceeds MAX_RESTARTS, advance the
+                        # bookmark and terminate the current sync. The next sync will resume from
+                        # the updated bookmark.
+                        #
+                        # Corner case:
+                        # If the bookmark points to a timestamp with more than 30,000 tickets,
+                        # every retry will fail because the API request parameters remain
+                        # unchanged. To prevent an endless retry loop, advance the bookmark by
+                        # one second and abort the current sync.
+
+                        LOGGER.warning(
+                            "Freshdesk ticket limit reached for %s. "
+                            "Restarting sync from bookmark %s "
+                            "(attempt %s/%s)",
+                            ticket_key,
+                            current_max_bookmark_date,
+                            restart_count,
+                            MAX_RESTARTS,
+                        )
+
+                        # If the max restart attempts are reached, advance the bookmark and abort the sync.
+                        if restart_count >= MAX_RESTARTS:
+                            advanced_bookmark = strftime(
+                                strptime_to_utc(current_max_bookmark_date)
+                                + timedelta(seconds=1)
+                            )
+
+                            LOGGER.error(
+                                "Max restart attempts reached for %s. "
+                                "Advancing bookmark from %s to %s and aborting sync.",
+                                ticket_key,
+                                current_max_bookmark_date,
+                                advanced_bookmark,
+                            )
+
+                            state = self.write_bookmark(
+                                state,
+                                ticket_key,
+                                value=advanced_bookmark,
+                            )
+
+                            raise
+
+                        # Persist progress before restarting
+                        state = self.write_bookmark(
+                            state,
+                            ticket_key,
+                            value=current_max_bookmark_date,
+                        )
+
+                        # Loop restarts automatically
+
             return counter.value
 
 

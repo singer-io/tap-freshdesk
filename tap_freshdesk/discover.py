@@ -14,8 +14,9 @@ def check_stream_access(client, stream_class) -> bool:
     return stream_obj.check_access()
 
 
-def _prune_inaccessible_children(schemas: dict, field_metadata: dict) -> None:
+def _prune_inaccessible_children(schemas: dict, field_metadata: dict) -> list:
     """Remove child streams whose parent stream is unavailable."""
+    inaccessible_children = []
     removed_child = True
     while removed_child:
         removed_child = False
@@ -32,7 +33,9 @@ def _prune_inaccessible_children(schemas: dict, field_metadata: dict) -> None:
                 )
                 schemas.pop(stream_name, None)
                 field_metadata.pop(stream_name, None)
+                inaccessible_children.append(stream_name)
                 removed_child = True
+    return inaccessible_children
 
 
 def _apply_access_checks(client, schemas: dict, field_metadata: dict) -> None:
@@ -47,17 +50,21 @@ def _apply_access_checks(client, schemas: dict, field_metadata: dict) -> None:
         schemas.pop(stream_name, None)
         field_metadata.pop(stream_name, None)
 
-    _prune_inaccessible_children(schemas, field_metadata)
+    inaccessible_children = _prune_inaccessible_children(schemas, field_metadata)
 
     if not schemas:
         raise freshdeskNoAccessibleStreamsError(
             "The credentials do not have read access to any of the supported streams."
         )
 
-    if inaccessible_streams:
+    all_inaccessible = inaccessible_streams + [
+        stream_name for stream_name in inaccessible_children if stream_name not in inaccessible_streams
+    ]
+
+    if all_inaccessible:
         LOGGER.warning(
-            "No read access to stream(s): %s. Excluded from catalog.",
-            ", ".join(inaccessible_streams),
+            "Unauthorized streams excluded from catalog: %s",
+            ", ".join(all_inaccessible),
         )
 
 
