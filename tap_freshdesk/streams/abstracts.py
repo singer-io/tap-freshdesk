@@ -620,12 +620,7 @@ class ChildBaseStream(IncrementalStream):
         return f"{self.client.base_url}/{self.path.format(parent_obj['id'])}"
 
     def get_bookmark(self, state: Dict, stream: str, key: Any = None) -> int:
-        """Singleton bookmark value for child streams."""
-        if not self.bookmark_value:
-            # Set bookmark value as singleton
-            self.bookmark_value = super().get_bookmark(state, stream)
-
-        return self.bookmark_value
+        return super().get_bookmark(state, stream)
 
     def get_parent_bookmark_for_category(self, state: Dict, category_key: str):
             """
