@@ -1,6 +1,10 @@
 from base import FreshdeskBaseTest
 from tap_tester.base_suite_tests.bookmark_test import BookmarkTest
 
+# Suffixes that the tap appends to base stream names when writing per-category
+# (spam / deleted) bookmark entries into state.
+_CATEGORY_SUFFIXES = ("_spam", "_deleted")
+
 
 class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
     """Test tap sets a bookmark and respects it for the next sync of a
@@ -16,6 +20,20 @@ class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
     }
 
     @staticmethod
+    def get_stream_name(stream_id):
+        """Map a state bookmark key to its canonical stream name.
+
+        The Freshdesk tap writes per-category bookmark entries for tickets and
+        their child streams (e.g. ``tickets_spam``, ``conversations_deleted``).
+        Strip the known suffixes so the framework can match these keys back to
+        the base stream name used in ``streams_to_test()``.
+        """
+        for suffix in _CATEGORY_SUFFIXES:
+            if stream_id.endswith(suffix):
+                return stream_id[: -len(suffix)]
+        return stream_id
+
+    @staticmethod
     def name():
         return "tap_tester_freshdesk_bookmark_test"
 
@@ -25,13 +43,7 @@ class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
             "time_entries",
             "agents",
             "groups",
-            "roles",
-            "tickets_spam",
-            "conversations_spam",
-            "tickets_deleted",
-            "conversations_deleted",
-            "conversations",
-            "tickets"
+            "roles"
             }
         return self.expected_stream_names().difference(streams_to_exclude)
 
@@ -41,7 +53,22 @@ class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
         back data)"""
         new_bookmarks = {
             "contacts": {"updated_at": "2022-02-03T10:22:12.000000Z"},
-            "companies": {"updated_at": "2022-08-18T13:58:07.000000Z"}
+            "companies": {"updated_at": "2022-08-18T13:58:07.000000Z"},
+            "tickets": {"updated_at": "2022-08-18T22:06:25.000000Z"},
+            "tickets_spam": {"updated_at": "2020-02-01T00:00:00Z"},
+            "tickets_deleted": {"updated_at": "2020-02-01T00:00:00Z"},
+            "conversations": {
+                "updated_at": "2022-08-01T22:06:25.000000Z",
+                "tickets_updated_at": "2022-08-18T22:06:25.000000Z",
+            },
+            "conversations_spam": {
+                "updated_at": "2020-02-01T00:00:00Z",
+                "tickets_spam_updated_at": "2020-02-01T00:00:00Z",
+            },
+            "conversations_deleted": {
+                "updated_at": "2020-02-01T00:00:00Z",
+                "tickets_deleted_updated_at": "2020-02-01T00:00:00Z",
+            },
         }
 
         return new_bookmarks
