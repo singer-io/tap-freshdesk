@@ -23,6 +23,7 @@ class CsatSurveys(TokenPaginatedMixin, FullTableStream):
     # No replication_keys: FullTableStream.replication_keys is already None
     children = ["survey_responses"]
     path = "customer-satisfaction/surveys"
+    data_key = "data"
 
     def get_url_endpoint(self, parent_obj=None):
         """Return the API endpoint URL for this stream."""

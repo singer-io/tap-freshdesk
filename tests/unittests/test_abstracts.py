@@ -1167,23 +1167,32 @@ class TestBaseStreamCheckAccess(unittest.TestCase):
 
     # --- child streams ---
 
-    def test_child_stream_uses_dummy_id_in_endpoint(self):
-        """Child streams must substitute dummy id=1, not fetch the parent."""
+    def test_child_stream_uses_parent_id_in_endpoint(self):
+        """check_access() fetches the real parent, then probes the child endpoint
+        using the parent record's id."""
         stream = self._child()
-        stream.client.get.return_value = []
+        # First call → parent tickets endpoint → returns a real record with id=42
+        # Second call → child conversations endpoint → success
+        stream.client.get.side_effect = [
+            [{"id": 42}],  # parent probe
+            [],            # child probe (empty but no error → accessible)
+        ]
         stream.check_access()
-        endpoint = stream.client.get.call_args.kwargs["endpoint"]
+        child_call_endpoint = stream.client.get.call_args_list[1].kwargs["endpoint"]
         self.assertEqual(
-            endpoint,
-            f"{self.BASE_URL}/tickets/1/conversations",
+            child_call_endpoint,
+            f"{self.BASE_URL}/tickets/42/conversations",
         )
 
-    def test_child_stream_makes_exactly_one_get_call(self):
-        """Only one request — no separate parent probe."""
+    def test_child_stream_makes_exactly_two_get_calls(self):
+        """Two requests: one parent probe, one child probe."""
         stream = self._child()
-        stream.client.get.return_value = []
+        stream.client.get.side_effect = [
+            [{"id": 7}],  # parent
+            [],           # child
+        ]
         stream.check_access()
-        stream.client.get.assert_called_once()
+        self.assertEqual(stream.client.get.call_count, 2)
 
     def test_child_stream_returns_true_on_success(self):
         stream = self._child()

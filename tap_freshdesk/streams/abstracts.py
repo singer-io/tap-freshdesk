@@ -47,6 +47,8 @@ class TokenPaginatedMixin:
         }
     """
 
+    data_key = "data"  # default; subclasses may override
+
     def get_records(self, state=None):  # noqa: D102
         """Yield records using token-based (``next_token``) pagination."""
         extraction_url = self.url_endpoint
@@ -60,7 +62,7 @@ class TokenPaginatedMixin:
             )
 
             raw_records = (
-                response.get("data", []) if isinstance(response, dict) else []
+                response.get(self.data_key, []) if isinstance(response, dict) else []
             )
 
             if not raw_records:
@@ -276,6 +278,9 @@ class BaseStream(ABC):
                         self.parent,
                     )
                     return True
+
+                if hasattr(self, "data_key"):
+                    parent_records = parent_records.get(self.data_key, []) if isinstance(parent_records, dict) else parent_records
 
                 endpoint = f"{self.client.base_url}/{self.path.format(parent_records[0]['id'])}"
 

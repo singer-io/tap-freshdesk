@@ -434,3 +434,276 @@ class TestSurveyResponsesIncrementalContract(unittest.TestCase):
         stream = _make_responses(client)
         result = stream.modify_object({"id": 101}, parent_record=None)
         self.assertNotIn("parent_id", result)
+
+
+# ---------------------------------------------------------------------------
+# Class 7 — SurveyResponses.check_access: 404 treated as accessible
+# ---------------------------------------------------------------------------
+
+
+class TestSurveyResponsesCheckAccess(unittest.TestCase):
+    """Tests for the overridden check_access on SurveyResponses.
+
+    The base class (BaseStream.check_access) fetches a real parent survey
+    and probes the responses endpoint.  SurveyResponses overrides this so
+    that a 404 from the responses probe returns True (no responses yet ≠
+    no permission), while 401/403 still propagate as False.
+    """
+
+    BASE_URL = "https://example.freshdesk.com/api/v2"
+
+    def _make_stream(self):
+        client = _make_client()
+        client.base_url = self.BASE_URL
+        stream = _make_responses(client)
+        return stream
+
+    # --- 404 from the responses endpoint ---
+
+    @patch("tap_freshdesk.streams.abstracts.BaseStream.check_access")
+    def test_404_from_base_check_access_returns_true(self, mock_base):
+        """A freshdeskNotFoundError raised by the base probe must return True."""
+        from tap_freshdesk.exceptions import freshdeskNotFoundError
+        mock_base.side_effect = freshdeskNotFoundError("404 - no responses")
+        stream = self._make_stream()
+        self.assertTrue(stream.check_access())
+
+    @patch("tap_freshdesk.streams.abstracts.BaseStream.check_access")
+    def test_404_does_not_propagate(self, mock_base):
+        """freshdeskNotFoundError must be swallowed, not re-raised."""
+        from tap_freshdesk.exceptions import freshdeskNotFoundError
+        mock_base.side_effect = freshdeskNotFoundError("404 - no responses")
+        stream = self._make_stream()
+        try:
+            result = stream.check_access()
+        except freshdeskNotFoundError:
+            self.fail(
+                "check_access() re-raised freshdeskNotFoundError "
+                "instead of returning True"
+            )
+        self.assertTrue(result)
+
+    # --- 200 (accessible) ---
+
+    @patch("tap_freshdesk.streams.abstracts.BaseStream.check_access",
+           return_value=True)
+    def test_accessible_survey_returns_true(self, _mock_base):
+        """When the base probe succeeds, check_access must return True."""
+        stream = self._make_stream()
+        self.assertTrue(stream.check_access())
+
+    @patch("tap_freshdesk.streams.abstracts.BaseStream.check_access",
+           return_value=True)
+    def test_base_check_access_called_exactly_once(self, mock_base):
+        """check_access must delegate to super() exactly once."""
+        stream = self._make_stream()
+        stream.check_access()
+        mock_base.assert_called_once()
+
+    # --- 401 / 403 still mean no permission ---
+
+    @patch("tap_freshdesk.streams.abstracts.BaseStream.check_access",
+           return_value=False)
+    def test_unauthorized_propagates_as_false(self, _mock_base):
+        """When base returns False (401/403), check_access must return False."""
+        stream = self._make_stream()
+        self.assertFalse(stream.check_access())
+
+    # --- no parent surveys ---
+
+    @patch("tap_freshdesk.streams.abstracts.BaseStream.check_access",
+           return_value=True)
+    def test_no_parent_surveys_delegates_to_base(self, mock_base):
+        """When the parent has no records, base handles it; we just forward."""
+        stream = self._make_stream()
+        result = stream.check_access()
+        self.assertTrue(result)
+        mock_base.assert_called_once()
+
+    # --- integration: real client wired ---
+
+    def test_check_access_via_real_client_404_on_responses_returns_true(self):
+        """End-to-end: parent returns one survey; responses returns 404."""
+        from tap_freshdesk.exceptions import freshdeskNotFoundError
+        from tap_freshdesk.streams import STREAMS
+
+        client = _make_client()
+        client.base_url = self.BASE_URL
+        # First call → csat_surveys list (parent fetch)
+        # Second call → responses for that survey → 404
+        client.get.side_effect = [
+            [{"id": "uuid-abc", "title": "Survey A"}],
+            freshdeskNotFoundError("404 - no responses for this survey"),
+        ]
+
+        stream = SurveyResponses(client=client, catalog=None)
+        stream.bookmark_value = None
+
+        self.assertTrue(stream.check_access())
+        self.assertEqual(client.get.call_count, 2)
+        # Second call must target the responses endpoint for the real survey id
+        second_endpoint = client.get.call_args_list[1].kwargs["endpoint"]
+        self.assertIn("uuid-abc", second_endpoint)
+        self.assertIn("responses", second_endpoint)
+
+    def test_check_access_via_real_client_403_returns_false(self):
+        """End-to-end: parent returns one survey; responses returns 403."""
+        from tap_freshdesk.exceptions import freshdeskForbiddenError
+
+        client = _make_client()
+        client.base_url = self.BASE_URL
+        client.get.side_effect = [
+            [{"id": "uuid-abc", "title": "Survey A"}],
+            freshdeskForbiddenError("403 - forbidden"),
+        ]
+
+        stream = SurveyResponses(client=client, catalog=None)
+        stream.bookmark_value = None
+
+        self.assertFalse(stream.check_access())
+
+
+# ---------------------------------------------------------------------------
+# Class 8 — SurveyResponses.sync: 404 per-survey skips gracefully
+# ---------------------------------------------------------------------------
+
+
+class TestSurveyResponsesSyncNotFoundHandling(unittest.TestCase):
+    """Tests for the 404 guard added to SurveyResponses.sync.
+
+    When the Freshdesk API returns 404 for a specific survey's responses
+    endpoint, sync() must log a warning and return 0 (rather than crashing),
+    so that the parent CsatSurveys loop continues to the next survey.
+    """
+
+    def _make_stream(self):
+        client = _make_client()
+        stream = _make_responses(client)
+        return stream
+
+    def _passthrough_transformer(self):
+        t = MagicMock()
+        t.transform.side_effect = lambda rec, schema, meta: dict(rec)
+        return t
+
+    # --- 404 on a specific survey ---
+
+    def test_sync_returns_zero_on_404(self):
+        """sync() must return 0 when the survey endpoint returns 404."""
+        from tap_freshdesk.exceptions import freshdeskNotFoundError
+        stream = self._make_stream()
+        stream.client.get.side_effect = freshdeskNotFoundError("404")
+        result = stream.sync(
+            {}, self._passthrough_transformer(), parent_obj=SURVEY_1
+        )
+        self.assertEqual(result, 0)
+
+    def test_sync_does_not_reraise_on_404(self):
+        """freshdeskNotFoundError must be caught, not propagated."""
+        from tap_freshdesk.exceptions import freshdeskNotFoundError
+        stream = self._make_stream()
+        stream.client.get.side_effect = freshdeskNotFoundError("404")
+        try:
+            stream.sync(
+                {}, self._passthrough_transformer(), parent_obj=SURVEY_1
+            )
+        except freshdeskNotFoundError:
+            self.fail(
+                "sync() re-raised freshdeskNotFoundError "
+                "instead of catching it"
+            )
+
+    def test_sync_writes_no_records_on_404(self):
+        """No records must be emitted when the survey returns 404."""
+        from tap_freshdesk.exceptions import freshdeskNotFoundError
+        stream = self._make_stream()
+        stream.client.get.side_effect = freshdeskNotFoundError("404")
+        with patch(
+            "tap_freshdesk.streams.abstracts.write_record"
+        ) as mock_wr:
+            stream.sync(
+                {}, self._passthrough_transformer(), parent_obj=SURVEY_1
+            )
+        mock_wr.assert_not_called()
+
+    def test_sync_continues_after_404_on_one_survey(self):
+        """CsatSurveys must call sync for the next survey even after a 404."""
+        from tap_freshdesk.exceptions import freshdeskNotFoundError
+        client = _make_client()
+        # surveys page → two surveys
+        # survey 1 responses → 404
+        # survey 2 responses → one record
+        client.get.side_effect = [
+            _page([SURVEY_1, SURVEY_2]),
+            freshdeskNotFoundError("404 - survey 1 has no responses"),
+            _page([RESPONSE_MID]),
+        ]
+
+        csat = _make_csat(client)
+        responses = _make_responses(client)
+        csat.child_to_sync = [responses]
+
+        with patch(
+            "tap_freshdesk.streams.csat_surveys.write_record"
+        ), patch(
+            "tap_freshdesk.streams.csat_surveys.metrics.record_counter"
+        ), patch(
+            "tap_freshdesk.streams.abstracts.write_record"
+        ), patch(
+            "tap_freshdesk.streams.abstracts.metrics.record_counter"
+        ):
+            csat.sync({}, _passthrough_transformer())
+
+        # 3 get calls: surveys page + 2 × responses page
+        self.assertEqual(client.get.call_count, 3)
+
+    def test_sync_returns_zero_on_none_parent(self):
+        """sync() called without a parent must return 0 immediately."""
+        stream = self._make_stream()
+        result = stream.sync(
+            {}, self._passthrough_transformer(), parent_obj=None
+        )
+        self.assertEqual(result, 0)
+        stream.client.get.assert_not_called()
+
+    # --- happy path still works ---
+
+    def test_sync_returns_count_on_success(self):
+        """When responses exist, sync() must return the number emitted."""
+        client = _make_client()
+        prior = {"bookmarks": {"survey_responses": {"updated_at": START_DATE}}}
+        client.get.return_value = _page(
+            [RESPONSE_MID, RESPONSE_LATEST]
+        )
+        stream = _make_responses(client)
+
+        with patch(
+            "tap_freshdesk.streams.abstracts.write_record"
+        ), patch(
+            "tap_freshdesk.streams.abstracts.metrics.record_counter"
+        ) as mock_counter:
+            mock_counter.return_value.__enter__ = MagicMock(
+                return_value=MagicMock(value=2)
+            )
+            mock_counter.return_value.__exit__ = MagicMock(return_value=False)
+            stream.sync(
+                prior, _passthrough_transformer(), parent_obj=SURVEY_1
+            )
+        # No exception raised — test passes if we reach here
+
+    def test_sync_state_not_mutated_on_404(self):
+        """State must be unchanged when a survey returns 404."""
+        from tap_freshdesk.exceptions import freshdeskNotFoundError
+        prior = {
+            "bookmarks": {
+                "survey_responses": {"updated_at": "2024-01-01T00:00:00Z"}
+            }
+        }
+        import copy
+        original_state = copy.deepcopy(prior)
+
+        stream = self._make_stream()
+        stream.client.get.side_effect = freshdeskNotFoundError("404")
+        stream.sync(prior, _passthrough_transformer(), parent_obj=SURVEY_1)
+
+        self.assertEqual(prior, original_state)
