@@ -74,7 +74,7 @@ class FreshdeskBaseTest(BaseCase):
                 cls.EXPECTED_PAGE_SIZE: 100,
                 cls.API_LIMIT: 100,
                 cls.PARENT_TAP_STREAM_ID: "tickets",
-                cls.IS_FORBIDDEN_STREAM: True
+                cls.IS_FORBIDDEN_STREAM: False
             },
             "tickets": {
                 cls.PRIMARY_KEYS: {"id"},
@@ -90,8 +90,127 @@ class FreshdeskBaseTest(BaseCase):
                 cls.EXPECTED_PAGE_SIZE: 100,
                 cls.API_LIMIT: 100,
                 cls.PARENT_TAP_STREAM_ID: "tickets",
+                cls.IS_FORBIDDEN_STREAM: False
+            },
+            "account": {
+                cls.PRIMARY_KEYS: {"account_id"},
+                cls.REPLICATION_METHOD: cls.FULL_TABLE,
+                cls.EXPECTED_PAGE_SIZE: 1,
+                cls.API_LIMIT: 1,
+            },
+            "ticket_fields": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+            },
+            "ticket_forms": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
                 cls.IS_FORBIDDEN_STREAM: True
             },
+            "contact_fields": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+            },
+            "skills": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+                cls.IS_FORBIDDEN_STREAM: False
+            },
+            "company_fields": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+            },
+            "email_configs": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+            },
+            "email_mailboxes": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+            },
+            "products": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+                cls.IS_FORBIDDEN_STREAM: False
+            },
+            "business_hours": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+            },
+            "scenario_automations": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+            },
+            "sla_policies": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+            },
+            "surveys": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+                cls.IS_FORBIDDEN_STREAM: False
+            },
+            "csat_surveys": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.FULL_TABLE,
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+                cls.IS_FORBIDDEN_STREAM: False
+            },
+            "survey_responses": {
+                cls.PRIMARY_KEYS: {"id"},
+                cls.REPLICATION_METHOD: cls.INCREMENTAL,
+                cls.REPLICATION_KEYS: {"updated_at"},
+                cls.EXPECTED_PAGE_SIZE: 100,
+                cls.API_LIMIT: 100,
+                cls.PARENT_TAP_STREAM_ID: "csat_surveys",
+                cls.IS_FORBIDDEN_STREAM: False
+            },
+        }
+
+    @classmethod
+    def expected_stream_names(cls):
+        """A set of expected stream names"""
+        return {
+            stream_name
+            for stream_name, metadata in cls.expected_metadata().items()
+            if not metadata.get(cls.IS_FORBIDDEN_STREAM, False)
         }
 
     @classmethod

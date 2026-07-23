@@ -1,0 +1,86 @@
+{
+  "type": "object",
+  "properties": {
+    "organisation_id": {
+      "type": ["null", "integer"]
+    },
+    "organisation_name": {
+      "type": ["null", "string"]
+    },
+    "account_id": {
+      "type": ["null", "integer"]
+    },
+    "account_name": {
+      "type": ["null", "string"]
+    },
+    "account_domain": {
+      "type": ["null", "string"]
+    },
+    "bundle_id": {
+      "type": ["null", "string"]
+    },
+    "hipaa_compliant": {
+      "type": ["null", "boolean"]
+    },
+    "total_agents": {
+      "type": ["null", "object"],
+      "properties": {
+        "full_time": {
+          "type": ["null", "integer"]
+        },
+        "occasional": {
+          "type": ["null", "integer"]
+        },
+        "field_service": {
+          "type": ["null", "integer"]
+        },
+        "collaborators": {
+          "type": ["null", "integer"]
+        }
+      }
+    },
+    "timezone": {
+      "type": ["null", "string"]
+    },
+    "data_center": {
+      "type": ["null", "string"]
+    },
+    "tier_type": {
+      "type": ["null", "string"]
+    },
+    "address": {
+      "type": ["null", "object"],
+      "properties": {
+        "country": {
+          "type": ["null", "string"]
+        },
+        "state": {
+          "type": ["null", "string"]
+        },
+        "city": {
+          "type": ["null", "string"]
+        },
+        "street": {
+          "type": ["null", "string"]
+        },
+        "postalcode": {
+          "type": ["null", "integer"]
+        }
+      }
+    },
+    "contact_person": {
+      "type": ["null", "object"],
+      "properties": {
+        "firstname": {
+          "type": ["null", "string"]
+        },
+        "lastname": {
+          "type": ["null", "string"]
+        },
+        "email": {
+          "type": ["null", "string"]
+        }
+      }
+    }
+  }
+}

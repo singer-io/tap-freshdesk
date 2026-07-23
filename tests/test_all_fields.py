@@ -16,12 +16,10 @@ class FreshdeskAllFields(AllFieldsTest, FreshdeskBaseTest):
             "view_all_tickets",
             "tags",
             "avatar",
-            "deleted",
-            "other_companies"
+            "deleted"
         ],
         "groups": [
-            "agent_ids",
-            "auto_ticket_assign"
+            "agent_ids"
         ],
         "tickets":[
             "twitter_id",
@@ -31,7 +29,14 @@ class FreshdeskAllFields(AllFieldsTest, FreshdeskBaseTest):
             "phone",
             "deleted",
             "description_text",
-            "email"]
+            "email"
+        ],
+        "ticket_fields": [
+            "field_update_in_progress"
+        ],
+        "survey_responses": [
+            "group_id"
+        ]
     }
 
     start_date = "2020-01-01T00:00:00Z"
@@ -41,5 +46,16 @@ class FreshdeskAllFields(AllFieldsTest, FreshdeskBaseTest):
         return "tap_tester_freshdesk_all_fields_test"
 
     def streams_to_test(self):
-        streams_to_exclude = {"satisfaction_ratings", "time_entries"}
+        streams_to_exclude = {
+            "satisfaction_ratings",
+            "time_entries",
+            "email_mailboxes",
+            "email_configs",
+            "sla_policies",
+            "scenario_automations",
+            "contact_fields",
+            "company_fields",
+            "skills",
+            "products"
+            }
         return self.expected_stream_names().difference(streams_to_exclude)

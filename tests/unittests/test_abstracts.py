@@ -1,6 +1,11 @@
 import unittest
 from unittest.mock import patch, MagicMock, Mock
 from tap_freshdesk.streams.abstracts import ParentBaseStream, ChildBaseStream, IncrementalStream
+from tap_freshdesk.exceptions import (
+    freshdeskForbiddenError,
+    freshdeskNotFoundError,
+    freshdeskUnauthorizedError,
+)
 
 from tap_freshdesk.streams import Tickets
 from tap_freshdesk.exceptions import freshdeskBadRequestError
@@ -1086,3 +1091,136 @@ class TestTicketsSync(unittest.TestCase):
         _, last_value = bookmark_writes[-1]
         # 2023-01-01T00:00:00Z + 1s = 2023-01-01T00:00:01
         self.assertIn("2023-01-01T00:00:01", last_value)
+
+# ---------------------------------------------------------------------------
+# BaseStream.check_access()
+# ---------------------------------------------------------------------------
+
+class TestBaseStreamCheckAccess(unittest.TestCase):
+    """Unit tests for BaseStream.check_access().
+
+    Uses the existing concrete helpers defined above:
+      * ConcreteParentBaseStream  (top-level, parent="")
+      * ConcreteChildBaseStream   (child, parent="tickets",
+                                   path="tickets/{}/conversations")
+    Both are instantiated with catalog=None so no Singer machinery fires.
+    """
+
+    BASE_URL = "https://example.freshdesk.com/api/v2"
+
+    def _top_level(self, path="agents"):
+        stream = ConcreteParentBaseStream(client=MagicMock())
+        stream.client.base_url = self.BASE_URL
+        stream.path = path
+        return stream
+
+    def _child(self):
+        stream = ConcreteChildBaseStream(client=MagicMock())
+        stream.client.base_url = self.BASE_URL
+        return stream
+
+    # --- top-level streams ---
+
+    def test_top_level_returns_true_on_success(self):
+        stream = self._top_level()
+        stream.client.get.return_value = [{"id": 1}]
+        self.assertTrue(stream.check_access())
+
+    def test_top_level_makes_exactly_one_get_call(self):
+        stream = self._top_level()
+        stream.client.get.return_value = []
+        stream.check_access()
+        stream.client.get.assert_called_once()
+
+    def test_top_level_probes_correct_endpoint(self):
+        stream = self._top_level("agents")
+        stream.client.get.return_value = []
+        stream.check_access()
+        endpoint = stream.client.get.call_args.kwargs["endpoint"]
+        self.assertEqual(endpoint, f"{self.BASE_URL}/agents")
+
+    def test_top_level_returns_false_on_unauthorized(self):
+        stream = self._top_level()
+        stream.client.get.side_effect = freshdeskUnauthorizedError("401")
+        self.assertFalse(stream.check_access())
+
+    def test_top_level_returns_false_on_forbidden(self):
+        stream = self._top_level()
+        stream.client.get.side_effect = freshdeskForbiddenError("403")
+        self.assertFalse(stream.check_access())
+
+    def test_top_level_returns_false_on_account_not_found_404(self):
+        stream = self._top_level()
+        stream.client.get.side_effect = freshdeskNotFoundError(
+            "HTTP-error-code: 404, Error: "
+            "Account not found for the provided domain"
+        )
+        self.assertFalse(stream.check_access())
+
+    def test_top_level_reraises_other_404(self):
+        stream = self._top_level()
+        stream.client.get.side_effect = freshdeskNotFoundError(
+            "Resource not found"
+        )
+        with self.assertRaises(freshdeskNotFoundError):
+            stream.check_access()
+
+    # --- child streams ---
+
+    def test_child_stream_uses_parent_id_in_endpoint(self):
+        """check_access() fetches the real parent, then probes the child endpoint
+        using the parent record's id."""
+        stream = self._child()
+        # First call → parent tickets endpoint → returns a real record with id=42
+        # Second call → child conversations endpoint → success
+        stream.client.get.side_effect = [
+            [{"id": 42}],  # parent probe
+            [],            # child probe (empty but no error → accessible)
+        ]
+        stream.check_access()
+        child_call_endpoint = stream.client.get.call_args_list[1].kwargs["endpoint"]
+        self.assertEqual(
+            child_call_endpoint,
+            f"{self.BASE_URL}/tickets/42/conversations",
+        )
+
+    def test_child_stream_makes_exactly_two_get_calls(self):
+        """Two requests: one parent probe, one child probe."""
+        stream = self._child()
+        stream.client.get.side_effect = [
+            [{"id": 7}],  # parent
+            [],           # child
+        ]
+        stream.check_access()
+        self.assertEqual(stream.client.get.call_count, 2)
+
+    def test_child_stream_returns_true_on_success(self):
+        stream = self._child()
+        stream.client.get.return_value = [{"id": 1}]
+        self.assertTrue(stream.check_access())
+
+    def test_child_stream_returns_false_on_forbidden(self):
+        stream = self._child()
+        stream.client.get.side_effect = freshdeskForbiddenError("403")
+        self.assertFalse(stream.check_access())
+
+    def test_child_stream_returns_false_on_unauthorized(self):
+        stream = self._child()
+        stream.client.get.side_effect = freshdeskUnauthorizedError("401")
+        self.assertFalse(stream.check_access())
+
+    def test_child_stream_returns_false_on_account_not_found_404(self):
+        stream = self._child()
+        stream.client.get.side_effect = freshdeskNotFoundError(
+            "HTTP-error-code: 404, Error: "
+            "Account not found for the provided domain"
+        )
+        self.assertFalse(stream.check_access())
+
+    def test_child_stream_reraises_other_404(self):
+        stream = self._child()
+        stream.client.get.side_effect = freshdeskNotFoundError(
+            "Resource not found"
+        )
+        with self.assertRaises(freshdeskNotFoundError):
+            stream.check_access()
