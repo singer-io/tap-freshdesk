@@ -16,12 +16,10 @@ class FreshdeskAllFields(AllFieldsTest, FreshdeskBaseTest):
             "view_all_tickets",
             "tags",
             "avatar",
-            "deleted",
-            "other_companies"
+            "deleted"
         ],
         "groups": [
-            "agent_ids",
-            "auto_ticket_assign"
+            "agent_ids"
         ],
         "tickets":[
             "twitter_id",
@@ -36,31 +34,8 @@ class FreshdeskAllFields(AllFieldsTest, FreshdeskBaseTest):
         "ticket_fields": [
             "field_update_in_progress"
         ],
-        "email_mailboxes": [
-            "mailbox_type",
-            "created_at",
-            "group_id",
-            "default_reply_email",
-            "name",
-            "id",
-            "freshdesk_mailbox",
-            "active",
-            "updated_at",
-            "support_email",
-            "product_id",
-            "custom_mailbox"
-        ],
-        "email_configs": [
-            "created_at",
-            "group_id",
-            "to_email",
-            "id",
-            "name",
-            "primary_role",
-            "active",
-            "updated_at",
-            "reply_email",
-            "product_id"
+        "survey_responses": [
+            "group_id"
         ]
     }
 
@@ -79,6 +54,8 @@ class FreshdeskAllFields(AllFieldsTest, FreshdeskBaseTest):
             "sla_policies",
             "scenario_automations",
             "contact_fields",
-            "company_fields"
+            "company_fields",
+            "skills",
+            "products"
             }
         return self.expected_stream_names().difference(streams_to_exclude)

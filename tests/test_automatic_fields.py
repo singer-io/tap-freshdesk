@@ -23,6 +23,8 @@ class FreshdeskAutomaticFields(MinimumSelectionTest, FreshdeskBaseTest):
             "sla_policies",
             "scenario_automations",
             "contact_fields",
-            "company_fields"
+            "company_fields",
+            "skills",
+            "products"
             }
         return self.expected_stream_names().difference(streams_to_exclude)

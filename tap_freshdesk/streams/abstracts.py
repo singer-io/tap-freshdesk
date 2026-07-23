@@ -52,7 +52,7 @@ class TokenPaginatedMixin:
     def get_records(self, state=None):  # noqa: D102
         """Yield records using token-based (``next_token``) pagination."""
         extraction_url = self.url_endpoint
-        self.params = {"per_page": self.page_size}
+        self.params = {**self.params, "per_page": self.page_size}
         page_count = 1
 
         while True:
@@ -86,6 +86,7 @@ class TokenPaginatedMixin:
                 break
 
             self.params = {
+                **self.params,
                 "per_page": self.page_size,
                 "next_token": next_token,
             }

@@ -40,7 +40,12 @@ class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
             "sla_policies",
             "ticket_fields",
             "business_hours",
-            "account"  # Full Table
+            "account",  # Full Table
+            "csat_surveys",  # Full Table
+            "skills",
+            "products",
+            "survey_responses",
+            "surveys"
             }
         return self.expected_stream_names().difference(streams_to_exclude)
 
@@ -49,8 +54,8 @@ class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
         a bookmark that will sync 2 records in sync 2 (plus any necessary look
         back data)"""
         new_bookmarks = {
-            "contacts": {"updated_at": "2022-02-03T10:22:12.000000Z"},
-            "companies": {"updated_at": "2022-08-18T13:58:07.000000Z"}
+            "contacts": {"updated_at": "2026-07-20T12:13:09.000000Z"},
+            "companies": {"updated_at": "2026-07-22T06:45:03.000000Z"}
         }
 
         return new_bookmarks

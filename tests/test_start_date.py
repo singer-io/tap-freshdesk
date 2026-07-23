@@ -26,6 +26,13 @@ class FreshdeskStartDateTest(StartDateTest, FreshdeskBaseTest):
             "groups",  # Full Table
             "roles",  # Full Table
             "agents",  # Full Table
+            "csat_surveys",  # Full Table
+            "skills",
+            "products",
+            "survey_responses",
+            "surveys",
+            "contacts",
+            "companies"
             }
         return self.expected_stream_names().difference(streams_to_exclude)
 

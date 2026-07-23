@@ -23,5 +23,10 @@ class FreshdeskPaginationTest(PaginationTest, FreshdeskBaseTest):
             "ticket_fields",
             "business_hours",
             "account",  # Full Table
+            "csat_surveys",  # Full Table
+            "skills",
+            "products",
+            "survey_responses",
+            "surveys"
             }
         return self.expected_stream_names().difference(streams_to_exclude)

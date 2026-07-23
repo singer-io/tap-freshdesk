@@ -74,7 +74,7 @@ class FreshdeskBaseTest(BaseCase):
                 cls.EXPECTED_PAGE_SIZE: 100,
                 cls.API_LIMIT: 100,
                 cls.PARENT_TAP_STREAM_ID: "tickets",
-                cls.IS_FORBIDDEN_STREAM: True
+                cls.IS_FORBIDDEN_STREAM: False
             },
             "tickets": {
                 cls.PRIMARY_KEYS: {"id"},
@@ -90,7 +90,7 @@ class FreshdeskBaseTest(BaseCase):
                 cls.EXPECTED_PAGE_SIZE: 100,
                 cls.API_LIMIT: 100,
                 cls.PARENT_TAP_STREAM_ID: "tickets",
-                cls.IS_FORBIDDEN_STREAM: True
+                cls.IS_FORBIDDEN_STREAM: False
             },
             "account": {
                 cls.PRIMARY_KEYS: {"account_id"},
@@ -126,7 +126,7 @@ class FreshdeskBaseTest(BaseCase):
                 cls.REPLICATION_KEYS: {"updated_at"},
                 cls.EXPECTED_PAGE_SIZE: 100,
                 cls.API_LIMIT: 100,
-                cls.IS_FORBIDDEN_STREAM: True
+                cls.IS_FORBIDDEN_STREAM: False
             },
             "company_fields": {
                 cls.PRIMARY_KEYS: {"id"},
@@ -155,7 +155,7 @@ class FreshdeskBaseTest(BaseCase):
                 cls.REPLICATION_KEYS: {"updated_at"},
                 cls.EXPECTED_PAGE_SIZE: 100,
                 cls.API_LIMIT: 100,
-                cls.IS_FORBIDDEN_STREAM: True
+                cls.IS_FORBIDDEN_STREAM: False
             },
             "business_hours": {
                 cls.PRIMARY_KEYS: {"id"},
@@ -184,14 +184,14 @@ class FreshdeskBaseTest(BaseCase):
                 cls.REPLICATION_KEYS: {"updated_at"},
                 cls.EXPECTED_PAGE_SIZE: 100,
                 cls.API_LIMIT: 100,
-                cls.IS_FORBIDDEN_STREAM: True
+                cls.IS_FORBIDDEN_STREAM: False
             },
             "csat_surveys": {
                 cls.PRIMARY_KEYS: {"id"},
                 cls.REPLICATION_METHOD: cls.FULL_TABLE,
                 cls.EXPECTED_PAGE_SIZE: 100,
                 cls.API_LIMIT: 100,
-                cls.IS_FORBIDDEN_STREAM: True
+                cls.IS_FORBIDDEN_STREAM: False
             },
             "survey_responses": {
                 cls.PRIMARY_KEYS: {"id"},
@@ -200,7 +200,7 @@ class FreshdeskBaseTest(BaseCase):
                 cls.EXPECTED_PAGE_SIZE: 100,
                 cls.API_LIMIT: 100,
                 cls.PARENT_TAP_STREAM_ID: "csat_surveys",
-                cls.IS_FORBIDDEN_STREAM: True
+                cls.IS_FORBIDDEN_STREAM: False
             },
         }
 
