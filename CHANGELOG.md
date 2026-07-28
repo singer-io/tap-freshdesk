@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.1
+  * Handle conversations bookmark progression [#72](https://github.com/singer-io/tap-freshdesk/pull/72)
+
 ## 1.1.0
   * Added per-stream access checks during discovery; streams returning 401 Unauthorized or 403 Forbidden are excluded from the catalog [#66](https://github.com/singer-io/tap-freshdesk/pull/66)
   * Adds `parent-tap-stream-id` field to catalog [#64](https://github.com/singer-io/tap-freshdesk/pull/64)
