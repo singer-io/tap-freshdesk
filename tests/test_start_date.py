@@ -26,4 +26,4 @@ class FreshdeskStartDateTest(StartDateTest, FreshdeskBaseTest):
 
     @property
     def start_date_2(self):
-        return "2022-08-01T00:00:00Z"
+        return "2026-07-25T00:00:00Z"

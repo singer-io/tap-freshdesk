@@ -16,12 +16,10 @@ class FreshdeskAllFields(AllFieldsTest, FreshdeskBaseTest):
             "view_all_tickets",
             "tags",
             "avatar",
-            "deleted",
-            "other_companies"
+            "deleted"
         ],
         "groups": [
-            "agent_ids",
-            "auto_ticket_assign"
+            "agent_ids"
         ],
         "tickets":[
             "twitter_id",

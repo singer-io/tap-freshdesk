@@ -52,8 +52,8 @@ class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
         a bookmark that will sync 2 records in sync 2 (plus any necessary look
         back data)"""
         new_bookmarks = {
-            "contacts": {"updated_at": "2022-02-03T10:22:12.000000Z"},
-            "companies": {"updated_at": "2022-08-18T13:58:07.000000Z"},
+            "contacts": {"updated_at": "2026-07-20T12:13:09.000000Z"},
+            "companies": {"updated_at": "2026-07-25T00:00:00Z"},
             "tickets": {"updated_at": "2022-08-18T22:06:25.000000Z"},
             "tickets_spam": {"updated_at": "2020-02-01T00:00:00Z"},
             "tickets_deleted": {"updated_at": "2020-02-01T00:00:00Z"},
