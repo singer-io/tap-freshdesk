@@ -188,7 +188,10 @@ class TestParentBaseStreamWriteBookmark(unittest.TestCase):
         mock_catalog.metadata = "mock_metadata"
         mock_to_map.return_value = {"metadata_key": "metadata_value"}
 
-        self.stream = ConcreteParentBaseStream(catalog=mock_catalog)
+        mock_client = MagicMock()
+        mock_client.config = {"start_date": "2023-01-01"}
+
+        self.stream = ConcreteParentBaseStream(catalog=mock_catalog, client=mock_client)
         self.stream.child_to_sync = []
 
     @patch("tap_freshdesk.streams.abstracts.BaseStream.is_selected", return_value=True)
@@ -213,7 +216,7 @@ class TestParentBaseStreamWriteBookmark(unittest.TestCase):
         
         mock_write_bookmark.assert_called_once()
         child.write_child_bookmark_with_parent.assert_called_once_with(
-            state, "", "2024-01-01", "2024-02-01"
+            state, "", "2023-01-01", "2024-02-01"
         )
 
     @patch("tap_freshdesk.streams.abstracts.BaseStream.is_selected", return_value=False)
@@ -245,23 +248,6 @@ class TestParentBaseStreamWriteBookmark(unittest.TestCase):
         mock_write_bookmark.assert_called_once()
         child1.write_child_bookmark_with_parent.assert_called_once()
         child2.write_child_bookmark_with_parent.assert_called_once()
-
-    @patch("tap_freshdesk.streams.abstracts.BaseStream.is_selected", return_value=True)
-    @patch("tap_freshdesk.streams.abstracts.IncrementalStream.write_bookmark")
-    def test_write_bookmark_child_returns_none_bookmark(self, mock_write_bookmark, _mock_is_selected):
-        child = MagicMock()
-        child.tap_stream_id = "conversations"
-        child.write_child_bookmark_with_parent = MagicMock(return_value={"bookmarks": {}})
-        child.get_bookmark = MagicMock(return_value=None)
-        self.stream.child_to_sync = [child]
-        
-        state = {"bookmarks": {}}
-        self.stream.write_bookmark(state, "tickets", value="2024-02-01")
-        
-        mock_write_bookmark.assert_called_once()
-        child.write_child_bookmark_with_parent.assert_called_once_with(
-            state, "", None, "2024-02-01"
-        )
 
 
 class TestChildBaseStream(unittest.TestCase):
@@ -1086,3 +1072,250 @@ class TestTicketsSync(unittest.TestCase):
         _, last_value = bookmark_writes[-1]
         # 2023-01-01T00:00:00Z + 1s = 2023-01-01T00:00:01
         self.assertIn("2023-01-01T00:00:01", last_value)
+
+# ---------------------------------------------------------------------------
+# ChildBaseStream.get_bookmark — singleton caching change
+# ---------------------------------------------------------------------------
+
+
+class TestChildBaseStreamGetBookmarkSingleton(unittest.TestCase):
+    """Tests for the singleton caching added to ChildBaseStream.get_bookmark.
+
+    Before this change: every call delegated straight to super().get_bookmark,
+    so multiple calls with different state would return different values.
+    After this change: the first call caches the result in self.bookmark_value
+    and all subsequent calls return that cached value, regardless of state.
+    """
+
+    def _make_stream(self):
+        with patch("tap_freshdesk.streams.abstracts.metadata.to_map"):
+            mock_catalog = MagicMock()
+            mock_catalog.schema.to_dict.return_value = {}
+            mock_catalog.metadata = []
+            mock_client = MagicMock()
+            mock_client.config = {"start_date": "2024-01-01T00:00:00Z"}
+            stream = ConcreteChildBaseStream(
+                catalog=mock_catalog, client=mock_client
+            )
+        stream.bookmark_value = None
+        return stream
+
+    @patch("tap_freshdesk.streams.abstracts.get_bookmark")
+    def test_first_call_reads_from_state(self, mock_get_bookmark):
+        """First get_bookmark call must read from state via super()."""
+        mock_get_bookmark.return_value = "2024-01-15T00:00:00Z"
+        stream = self._make_stream()
+        state = {"bookmarks": {"conversations": {"updated_at": "2024-01-15T00:00:00Z"}}}
+
+        result = stream.get_bookmark(state, "conversations")
+
+        self.assertEqual(result, "2024-01-15T00:00:00Z")
+        mock_get_bookmark.assert_called_once()
+
+    @patch("tap_freshdesk.streams.abstracts.get_bookmark")
+    def test_second_call_returns_cached_value(self, mock_get_bookmark):
+        """Subsequent calls must return the cached value without calling super()."""
+        mock_get_bookmark.return_value = "2024-01-15T00:00:00Z"
+        stream = self._make_stream()
+        state = {"bookmarks": {"conversations": {"updated_at": "2024-01-15T00:00:00Z"}}}
+
+        stream.get_bookmark(state, "conversations")  # first call — caches
+        mock_get_bookmark.reset_mock()
+
+        result = stream.get_bookmark(state, "conversations")  # second call
+
+        self.assertEqual(result, "2024-01-15T00:00:00Z")
+        mock_get_bookmark.assert_not_called()  # super() must NOT be called again
+
+    @patch("tap_freshdesk.streams.abstracts.get_bookmark")
+    def test_cached_value_not_updated_when_state_changes(self, mock_get_bookmark):
+        """Once cached, the bookmark does not change even if state is updated."""
+        mock_get_bookmark.return_value = "2024-01-15T00:00:00Z"
+        stream = self._make_stream()
+        state = {"bookmarks": {"conversations": {"updated_at": "2024-01-15T00:00:00Z"}}}
+
+        stream.get_bookmark(state, "conversations")  # caches "2024-01-15"
+        mock_get_bookmark.return_value = "2024-03-01T00:00:00Z"  # state advances
+
+        result = stream.get_bookmark(state, "conversations")
+
+        # Still returns the originally cached value
+        self.assertEqual(result, "2024-01-15T00:00:00Z")
+
+    @patch("tap_freshdesk.streams.abstracts.get_bookmark")
+    def test_none_bookmark_value_triggers_super_on_next_call(self, mock_get_bookmark):
+        """If bookmark_value is falsy (None), super() is called each time until set."""
+        mock_get_bookmark.return_value = None
+        stream = self._make_stream()
+        state = {"bookmarks": {}}
+
+        stream.get_bookmark(state, "conversations")
+        stream.get_bookmark(state, "conversations")
+
+        # super() called both times because None is falsy and never cached
+        self.assertEqual(mock_get_bookmark.call_count, 2)
+
+    @patch("tap_freshdesk.streams.abstracts.get_bookmark")
+    def test_pre_set_bookmark_value_is_returned_without_super_call(
+        self, mock_get_bookmark
+    ):
+        """If bookmark_value is already set before get_bookmark, super() is skipped."""
+        stream = self._make_stream()
+        stream.bookmark_value = "2024-06-01T00:00:00Z"  # pre-set
+        state = {"bookmarks": {}}
+
+        result = stream.get_bookmark(state, "conversations")
+
+        self.assertEqual(result, "2024-06-01T00:00:00Z")
+        mock_get_bookmark.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# ParentBaseStream.write_bookmark — uses super().get_bookmark for child state
+# ---------------------------------------------------------------------------
+
+class TestParentWriteBookmarkUsesDirectChildBookmark(unittest.TestCase):
+    """Tests confirming write_bookmark reads the child's state bookmark via
+    IncrementalStream.get_bookmark (super()) rather than the child's own
+    overridden get_bookmark.
+
+    Before this change: child.get_bookmark(state, child.tap_stream_id) was
+    called, which returned the singleton cached value and could hand a stale
+    or None bookmark to write_child_bookmark_with_parent.
+
+    After this change: super().get_bookmark(state, child.tap_stream_id) is
+    called, which always reads directly from state — ensuring the freshest
+    child bookmark is propagated.
+    """
+
+    def _make_parent_stream(self):
+        with patch("tap_freshdesk.streams.abstracts.metadata.to_map"):
+            mock_catalog = MagicMock()
+            mock_catalog.schema.to_dict.return_value = {}
+            mock_catalog.metadata = []
+            stream = ConcreteParentBaseStream(catalog=mock_catalog)
+        stream.child_to_sync = []
+        return stream
+
+    @patch("tap_freshdesk.streams.abstracts.BaseStream.is_selected", return_value=True)
+    @patch("tap_freshdesk.streams.abstracts.IncrementalStream.get_bookmark")
+    @patch("tap_freshdesk.streams.abstracts.IncrementalStream.write_bookmark")
+    def test_write_bookmark_reads_child_bookmark_via_super(
+        self, _mock_wb, mock_get_bookmark, _mock_is_selected
+    ):
+        """super().get_bookmark must be the source for the child bookmark value
+        passed to write_child_bookmark_with_parent, NOT child.get_bookmark."""
+        stream = self._make_parent_stream()
+
+        child = MagicMock(spec=ConcreteChildBaseStream)
+        child.tap_stream_id = "conversations"
+        # The child's own get_bookmark returns a stale cached value
+        child.get_bookmark.return_value = "2024-01-01T00:00:00Z"
+        # super().get_bookmark (IncrementalStream) returns the actual state value
+        mock_get_bookmark.return_value = "2024-02-15T00:00:00Z"
+        stream.child_to_sync = [child]
+
+        state = {
+            "bookmarks": {
+                "conversations": {"updated_at": "2024-02-15T00:00:00Z"}
+            }
+        }
+        stream.write_bookmark(state, "tickets", value="2024-03-01T00:00:00Z")
+
+        # write_child_bookmark_with_parent must have been called with the value
+        # from super().get_bookmark, not from child.get_bookmark
+        child.write_child_bookmark_with_parent.assert_called_once_with(
+            state,
+            "",                         # category_suffix derived from "tickets"
+            "2024-02-15T00:00:00Z",     # from super().get_bookmark
+            "2024-03-01T00:00:00Z",     # parent value
+        )
+        # Crucially, child.get_bookmark must NOT have been called
+        child.get_bookmark.assert_not_called()
+
+    @patch("tap_freshdesk.streams.abstracts.BaseStream.is_selected", return_value=True)
+    @patch("tap_freshdesk.streams.abstracts.IncrementalStream.get_bookmark")
+    @patch("tap_freshdesk.streams.abstracts.IncrementalStream.write_bookmark")
+    def test_write_bookmark_child_bookmark_none_in_state(
+        self, _mock_wb, mock_get_bookmark, _mock_is_selected
+    ):
+        """When the child has no bookmark in state, None is passed as child
+        bookmark to write_child_bookmark_with_parent."""
+        stream = self._make_parent_stream()
+
+        child = MagicMock(spec=ConcreteChildBaseStream)
+        child.tap_stream_id = "conversations"
+        mock_get_bookmark.return_value = None  # no state bookmark for child
+        stream.child_to_sync = [child]
+
+        state = {"bookmarks": {}}
+        stream.write_bookmark(state, "tickets", value="2024-03-01T00:00:00Z")
+
+        child.write_child_bookmark_with_parent.assert_called_once_with(
+            state, "", None, "2024-03-01T00:00:00Z"
+        )
+
+    @patch("tap_freshdesk.streams.abstracts.BaseStream.is_selected", return_value=True)
+    @patch("tap_freshdesk.streams.abstracts.IncrementalStream.get_bookmark")
+    @patch("tap_freshdesk.streams.abstracts.IncrementalStream.write_bookmark")
+    def test_write_bookmark_category_suffix_for_spam(
+        self, _mock_wb, mock_get_bookmark, _mock_is_selected
+    ):
+        """Category suffix is correctly derived from the stream key for _spam."""
+        stream = self._make_parent_stream()
+
+        child = MagicMock(spec=ConcreteChildBaseStream)
+        child.tap_stream_id = "conversations"
+        mock_get_bookmark.return_value = "2024-02-01T00:00:00Z"
+        stream.child_to_sync = [child]
+
+        state = {"bookmarks": {}}
+        # stream key includes "_spam" suffix → category_suffix should be "_spam"
+        stream.write_bookmark(state, "tickets_spam", value="2024-03-01T00:00:00Z")
+
+        child.write_child_bookmark_with_parent.assert_called_once_with(
+            state, "_spam", "2024-02-01T00:00:00Z", "2024-03-01T00:00:00Z"
+        )
+
+    @patch("tap_freshdesk.streams.abstracts.BaseStream.is_selected", return_value=True)
+    @patch("tap_freshdesk.streams.abstracts.IncrementalStream.get_bookmark")
+    @patch("tap_freshdesk.streams.abstracts.IncrementalStream.write_bookmark")
+    def test_write_bookmark_category_suffix_for_deleted(
+        self, _mock_wb, mock_get_bookmark, _mock_is_selected
+    ):
+        """Category suffix is correctly derived from the stream key for _deleted."""
+        stream = self._make_parent_stream()
+
+        child = MagicMock(spec=ConcreteChildBaseStream)
+        child.tap_stream_id = "conversations"
+        mock_get_bookmark.return_value = "2024-02-01T00:00:00Z"
+        stream.child_to_sync = [child]
+
+        state = {"bookmarks": {}}
+        stream.write_bookmark(state, "tickets_deleted", value="2024-03-01T00:00:00Z")
+
+        child.write_child_bookmark_with_parent.assert_called_once_with(
+            state, "_deleted", "2024-02-01T00:00:00Z", "2024-03-01T00:00:00Z"
+        )
+
+    @patch("tap_freshdesk.streams.abstracts.BaseStream.is_selected", return_value=True)
+    @patch("tap_freshdesk.streams.abstracts.IncrementalStream.get_bookmark")
+    @patch("tap_freshdesk.streams.abstracts.IncrementalStream.write_bookmark")
+    def test_write_bookmark_super_called_once_per_child(
+        self, _mock_wb, mock_get_bookmark, _mock_is_selected
+    ):
+        """super().get_bookmark must be called exactly once per child stream."""
+        stream = self._make_parent_stream()
+
+        child1 = MagicMock(spec=ConcreteChildBaseStream)
+        child1.tap_stream_id = "conversations"
+        child2 = MagicMock(spec=ConcreteChildBaseStream)
+        child2.tap_stream_id = "time_entries"
+        mock_get_bookmark.return_value = "2024-01-01T00:00:00Z"
+        stream.child_to_sync = [child1, child2]
+
+        state = {"bookmarks": {}}
+        stream.write_bookmark(state, "tickets", value="2024-03-01T00:00:00Z")
+
+        # Called once for parent (is_selected=True) + once per child = 3 total
+        self.assertEqual(mock_get_bookmark.call_count, 2)

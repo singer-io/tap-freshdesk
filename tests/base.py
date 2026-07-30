@@ -74,7 +74,7 @@ class FreshdeskBaseTest(BaseCase):
                 cls.EXPECTED_PAGE_SIZE: 100,
                 cls.API_LIMIT: 100,
                 cls.PARENT_TAP_STREAM_ID: "tickets",
-                cls.IS_FORBIDDEN_STREAM: True
+                cls.IS_FORBIDDEN_STREAM: False
             },
             "tickets": {
                 cls.PRIMARY_KEYS: {"id"},
@@ -90,7 +90,7 @@ class FreshdeskBaseTest(BaseCase):
                 cls.EXPECTED_PAGE_SIZE: 100,
                 cls.API_LIMIT: 100,
                 cls.PARENT_TAP_STREAM_ID: "tickets",
-                cls.IS_FORBIDDEN_STREAM: True
+                cls.IS_FORBIDDEN_STREAM: False
             },
         }
 

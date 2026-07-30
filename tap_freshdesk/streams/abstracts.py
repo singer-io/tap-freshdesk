@@ -411,7 +411,7 @@ class ParentBaseStream(IncrementalStream):
             # Write the parent's bookmark into the child state entry
             if hasattr(child, "write_child_bookmark_with_parent"):
                 category_suffix = stream.replace(self.tap_stream_id, "")  # "", "_spam", "_deleted"
-                child_state_bookmark = child.get_bookmark(state, child.tap_stream_id)
+                child_state_bookmark = super().get_bookmark(state, child.tap_stream_id)
                 child.write_child_bookmark_with_parent(
                     state,
                     category_suffix,
@@ -621,8 +621,7 @@ class ChildBaseStream(IncrementalStream):
 
     def get_bookmark(self, state: Dict, stream: str, key: Any = None) -> int:
         """Singleton bookmark value for child streams."""
-        if not self.bookmark_value:
-            # Set bookmark value as singleton
+        if not self.bookmark_value:  # pylint: disable=access-member-before-definition
             self.bookmark_value = super().get_bookmark(state, stream)
 
         return self.bookmark_value
