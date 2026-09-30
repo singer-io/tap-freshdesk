@@ -9,7 +9,7 @@ class Skills(IncrementalStream):
     tap_stream_id = "skills"
     key_properties = ["id"]
     replication_keys = ["updated_at"]
-    path = "skills"
+    path = "admin/skills"
 
     def get_url_endpoint(self, parent_obj=None):
         """Get the URL endpoint for the skills stream."""
