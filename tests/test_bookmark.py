@@ -1,6 +1,10 @@
 from base import FreshdeskBaseTest
 from tap_tester.base_suite_tests.bookmark_test import BookmarkTest
 
+# Suffixes that the tap appends to base stream names when writing per-category
+# (spam / deleted) bookmark entries into state.
+_CATEGORY_SUFFIXES = ("_spam", "_deleted")
+
 
 class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
     """Test tap sets a bookmark and respects it for the next sync of a
@@ -14,6 +18,20 @@ class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
             "companies": {"updated_at": "2022-08-17T13:58:07.000000Z"}
         }
     }
+
+    @staticmethod
+    def get_stream_name(stream_id):
+        """Map a state bookmark key to its canonical stream name.
+
+        The Freshdesk tap writes per-category bookmark entries for tickets and
+        their child streams (e.g. ``tickets_spam``, ``conversations_deleted``).
+        Strip the known suffixes so the framework can match these keys back to
+        the base stream name used in ``streams_to_test()``.
+        """
+        for suffix in _CATEGORY_SUFFIXES:
+            if stream_id.endswith(suffix):
+                return stream_id[: -len(suffix)]
+        return stream_id
 
     @staticmethod
     def name():

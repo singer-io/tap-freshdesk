@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="tap-freshdesk",
-    version="1.1.0",
+    version="1.1.1",
     description="Singer.io tap for extracting data from freshdesk API",
     author="Stitch Dev",
     url="http://singer.io",
