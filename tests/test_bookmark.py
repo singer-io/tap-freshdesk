@@ -73,7 +73,7 @@ class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
         back data)"""
         new_bookmarks = {
             "contacts": {"updated_at": "2026-07-20T12:13:09.000000Z"},
-            "companies": {"updated_at": "2026-07-22T06:45:03.000000Z"}
+            "companies": {"updated_at": "2026-07-22T06:45:12.000000Z"}
         }
 
         return new_bookmarks
