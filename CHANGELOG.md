@@ -1,7 +1,7 @@
 # Changelog
 
 ## 1.1.2
-- Hardened SSRF protection by restricting Freshdesk requests to validated account subdomains[#73](https://github.com/singer-io/tap-freshdesk/pull/73)
+- Hardened SSRF protection by restricting Freshdesk requests to validated account subdomains [#73](https://github.com/singer-io/tap-freshdesk/pull/73)
 
 ## 1.1.1
   * Handle conversations bookmark progression [#72](https://github.com/singer-io/tap-freshdesk/pull/72)
