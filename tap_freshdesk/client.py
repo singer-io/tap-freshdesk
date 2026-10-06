@@ -1,3 +1,4 @@
+import re
 from typing import Any, Dict, Mapping, Optional, Tuple
 
 import backoff
@@ -78,9 +79,15 @@ class Client:
 
     def __init__(self, config: Mapping[str, Any]) -> None:
         self.config = config
+        domain = config.get("domain")
+        if not isinstance(domain, str) or not re.fullmatch(
+            r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", domain
+        ):
+            raise ValueError(
+                "Invalid Freshdesk domain: provide only the account subdomain label."
+            )
         self._session = session()
         self._credentials_validated = False
-        domain = config.get("domain")
         self.base_url = f"https://{domain}.freshdesk.com/api/v2"
 
         config_request_timeout = config.get("request_timeout")

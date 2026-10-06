@@ -38,6 +38,38 @@ def _make_client():
 
 
 # ---------------------------------------------------------------------------
+# Client domain validation
+# ---------------------------------------------------------------------------
+
+
+class TestClientDomainValidation(unittest.TestCase):
+    def test_valid_subdomain_uses_fixed_freshdesk_host(self):
+        client = _make_client()
+        self.assertEqual(
+            client.base_url, "https://testdomain.freshdesk.com/api/v2"
+        )
+
+    def test_rejects_non_subdomain_values(self):
+        invalid_domains = [
+            None,
+            "",
+            "some-url.com/",
+            "https://some-url.com",
+            "some-internal.local",
+            "reporting.internal.freshdesk.com",
+            "user@some-url.com",
+            "-invalid",
+            "invalid-",
+            "a" * 64,
+        ]
+
+        for domain in invalid_domains:
+            with self.subTest(domain=domain):
+                with self.assertRaisesRegex(ValueError, "account subdomain label"):
+                    Client({"api_key": "test_key", "domain": domain})
+
+
+# ---------------------------------------------------------------------------
 # freshdeskRateLimitError
 # ---------------------------------------------------------------------------
 
