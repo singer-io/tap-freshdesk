@@ -175,7 +175,9 @@ class Client:
             Dict,List,None: Returns a `Json Parsed` HTTP Response or None if exception
         """
         with metrics.http_request_timer(endpoint) as timer:
-            response = self._session.request(method, endpoint, **kwargs)
+            response = self._session.request(
+                method, endpoint, allow_redirects=False, **kwargs
+            )
             raise_for_error(response)
 
         return response.json()

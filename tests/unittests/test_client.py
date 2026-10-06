@@ -49,6 +49,18 @@ class TestClientDomainValidation(unittest.TestCase):
             client.base_url, "https://testdomain.freshdesk.com/api/v2"
         )
 
+    def test_requests_do_not_follow_redirects(self):
+        client = _make_client()
+        client._session.request = Mock(
+            return_value=_make_response(200, json_data=[])
+        )
+
+        client.get("https://testdomain.freshdesk.com/api/v2/agents", {}, {})
+
+        self.assertFalse(
+            client._session.request.call_args.kwargs["allow_redirects"]
+        )
+
     def test_rejects_non_subdomain_values(self):
         invalid_domains = [
             None,
