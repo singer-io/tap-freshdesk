@@ -43,7 +43,27 @@ class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
             "time_entries",
             "agents",
             "groups",
-            "roles"
+            "roles",
+            "tickets_spam",
+            "conversations_spam",
+            "tickets_deleted",
+            "conversations_deleted",
+            "conversations",
+            "tickets",
+            "scenario_automations",
+            "contact_fields",
+            "email_mailboxes",
+            "company_fields",
+            "email_configs",
+            "sla_policies",
+            "ticket_fields",
+            "business_hours",
+            "account",  # Full Table
+            "csat_surveys",  # Full Table
+            "skills",
+            "products",
+            "survey_responses",
+            "surveys"
             }
         return self.expected_stream_names().difference(streams_to_exclude)
 
@@ -53,22 +73,7 @@ class FreshdeskBookMarkTest(BookmarkTest, FreshdeskBaseTest):
         back data)"""
         new_bookmarks = {
             "contacts": {"updated_at": "2026-07-20T12:13:09.000000Z"},
-            "companies": {"updated_at": "2026-07-25T00:00:00Z"},
-            "tickets": {"updated_at": "2022-08-18T22:06:25.000000Z"},
-            "tickets_spam": {"updated_at": "2020-02-01T00:00:00Z"},
-            "tickets_deleted": {"updated_at": "2020-02-01T00:00:00Z"},
-            "conversations": {
-                "updated_at": "2022-08-01T22:06:25.000000Z",
-                "tickets_updated_at": "2022-08-18T22:06:25.000000Z",
-            },
-            "conversations_spam": {
-                "updated_at": "2020-02-01T00:00:00Z",
-                "tickets_spam_updated_at": "2020-02-01T00:00:00Z",
-            },
-            "conversations_deleted": {
-                "updated_at": "2020-02-01T00:00:00Z",
-                "tickets_deleted_updated_at": "2020-02-01T00:00:00Z",
-            },
+            "companies": {"updated_at": "2026-07-22T06:45:12.000000Z"}
         }
 
         return new_bookmarks

@@ -1,0 +1,419 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "title": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "description": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "header_message": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "state": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "language": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "questions": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "null",
+          "object"
+        ],
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "question_identifier": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "required": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "deleted": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "hint_enabled": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "hint_footer_content": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "footer_content": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "theme": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "scale": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "min": {
+                "type": [
+                  "null",
+                  "integer"
+                ]
+              },
+              "max": {
+                "type": [
+                  "null",
+                  "integer"
+                ]
+              },
+              "variant": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "order": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "button_shape": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "button_style": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "label_preference": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "labels": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              },
+              "score_ranges": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "min": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "max": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "label": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "ratings": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "value": {
+                  "type": [
+                    "null",
+                    "integer"
+                  ]
+                },
+                "label": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              }
+            }
+          },
+          "multiline": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "multiple": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "choices": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "value": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "label": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              }
+            }
+          },
+          "display_logic": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "logic_operator": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "conditions": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "question_id": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "operator": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "value": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": [
+                          "null",
+                          "string"
+                        ]
+                      }
+                    },
+                    "visibility": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "logic_type": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "sub_type": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "skip_logic": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "logic_type": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "conditions": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "condition_type": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "value": {
+                      "type": [
+                        "null",
+                        "array"
+                      ],
+                      "items": {
+                        "type": [
+                          "null",
+                          "string"
+                        ]
+                      }
+                    },
+                    "target_question_id": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "header_text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "image_url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

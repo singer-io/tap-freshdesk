@@ -1,0 +1,115 @@
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": [
+        "null",
+        "integer"
+      ]
+    },
+    "name": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "label": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "position": {
+      "type": [
+        "null",
+        "integer"
+      ]
+    },
+    "type": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "default": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "editable_in_signup": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "required_for_agents": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "agents_can_edit": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "displayed_for_agents": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "quick_add_for_agent": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "unique": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "customers_can_edit": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "label_for_customers": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "required_for_customers": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "displayed_for_customers": {
+      "type": [
+        "null",
+        "boolean"
+      ]
+    },
+    "created_at": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": [
+        "null",
+        "string"
+      ],
+      "format": "date-time"
+    }
+  }
+}

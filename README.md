@@ -26,6 +26,36 @@ This tap:
 
     - [Roles](https://developers.freshdesk.com/api/#list_all_roles)
 
+    - [Account](https://developers.freshdesk.com/api/#account)
+
+    - [Ticket Fields](https://developers.freshdesk.com/api/#list_all_ticket_fields)
+
+    - [Ticket Forms](https://developers.freshdesk.com/api/#list_all_ticket_forms)
+
+    - [Contact Fields](https://developers.freshdesk.com/api/#list_all_contact_fields)
+
+    - [Skills](https://developers.freshdesk.com/api/#list_all_skills)
+
+    - [Company Fields](https://developers.freshdesk.com/api/#list_all_company_fields)
+
+    - [Email Configs](https://developers.freshdesk.com/api/#list_all_email_configs)
+
+    - [Email Mailboxes](https://developers.freshdesk.com/api/#list_all_email_mailboxes)
+
+    - [Products](https://developers.freshdesk.com/api/#list_all_products)
+
+    - [Business Hours](https://developers.freshdesk.com/api/#list_all_business_hours)
+
+    - [Scenario Automations](https://developers.freshdesk.com/api/#list_all_scenario_automations)
+
+    - [SLA Policies](https://developers.freshdesk.com/api/#list_all_sla_policies)
+
+    - [Surveys](https://developers.freshdesk.com/api/#list_all_survey)
+
+    - [CSAT Surveys](https://developers.freshdesk.com/api/#csat_content)
+
+    - [Survey Responses](https://developers.freshdesk.com/api/#view_survey_responses)
+
 - Outputs the schema for each resource
 - Incrementally pulls data based on the input state
 
@@ -68,6 +98,66 @@ This tap:
 **[roles](https://developers.freshdesk.com/api/#list_all_roles)**
 - Primary keys: ['id']
 - Replication strategy: FULL_TABLE
+
+**[account](https://developers.freshdesk.com/api/#account)**
+- Primary keys: ['account_id']
+- Replication strategy: FULL_TABLE
+
+**[ticket_fields](https://developers.freshdesk.com/api/#list_all_ticket_fields)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL
+
+**[ticket_forms](https://developers.freshdesk.com/api/#list_all_ticket_forms)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL
+
+**[contact_fields](https://developers.freshdesk.com/api/#list_all_contact_fields)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL
+
+**[skills](https://developers.freshdesk.com/api/#list_all_skills)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL
+
+**[company_fields](https://developers.freshdesk.com/api/#list_all_company_fields)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL
+
+**[email_configs](https://developers.freshdesk.com/api/#list_all_email_configs)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL
+
+**[email_mailboxes](https://developers.freshdesk.com/api/#list_all_email_mailboxes)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL
+
+**[products](https://developers.freshdesk.com/api/#list_all_products)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL
+
+**[business_hours](https://developers.freshdesk.com/api/#list_all_business_hours)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL
+
+**[scenario_automations](https://developers.freshdesk.com/api/#list_all_scenario_automations)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL
+
+**[sla_policies](https://developers.freshdesk.com/api/#list_all_sla_policies)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL
+
+**[surveys](https://developers.freshdesk.com/api/#list_all_survey)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL
+
+**[csat_surveys](https://developers.freshdesk.com/api/#csat_content)**
+- Primary keys: ['id']
+- Replication strategy: FULL_TABLE
+
+**[survey_responses](https://developers.freshdesk.com/api/#view_survey_responses)**
+- Primary keys: ['id']
+- Replication strategy: INCREMENTAL (child of csat_surveys)
 
 
 
