@@ -10,7 +10,3 @@ class Products(IncrementalStream):
     key_properties = ["id"]
     replication_keys = ["updated_at"]
     path = "products"
-
-    def get_url_endpoint(self, parent_obj=None):
-        """Get the URL endpoint for the products stream."""
-        return f"{self.client.base_url}/{self.path}"

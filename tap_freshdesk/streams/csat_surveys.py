@@ -25,10 +25,6 @@ class CsatSurveys(TokenPaginatedMixin, FullTableStream):
     path = "customer-satisfaction/surveys"
     data_key = "data"
 
-    def get_url_endpoint(self, parent_obj=None):
-        """Return the API endpoint URL for this stream."""
-        return f"{self.client.base_url}/{self.path}"
-
     def sync(self, state, transformer):
         """Full-table sync that also fans out to child streams per record.
 

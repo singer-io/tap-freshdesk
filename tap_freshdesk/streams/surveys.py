@@ -15,7 +15,3 @@ class Surveys(IncrementalStream):
     key_properties = ["id"]
     replication_keys = ["updated_at"]
     path = "surveys"
-
-    def get_url_endpoint(self, parent_obj=None):
-        """Get the URL endpoint for the surveys stream."""
-        return f"{self.client.base_url}/{self.path}"

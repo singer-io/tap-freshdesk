@@ -249,7 +249,7 @@ class BaseStream(ABC):
 
     def get_url_endpoint(self, parent_obj: Dict = None) -> str:
         """Get the URL endpoint for the stream"""
-        return self.url_endpoint
+        return f"{self.client.base_url}/{self.path}"
 
     def check_access(self) -> bool:
         """Verify that the API credentials have read access to this stream."""

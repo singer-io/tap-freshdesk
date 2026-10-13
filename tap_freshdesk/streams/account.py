@@ -12,10 +12,6 @@ class Account(FullTableStream):
     key_properties = ["account_id"]
     path = "account"
 
-    def get_url_endpoint(self, parent_obj=None):
-        """Get the URL endpoint for the account stream."""
-        return f"{self.client.base_url}/{self.path}"
-
     def get_records(self):
         """Override to handle the singleton account response.
 
