@@ -1,4 +1,6 @@
+import re
 from typing import Any, Dict, Mapping, Optional, Tuple
+from urllib.parse import urlsplit
 
 import backoff
 import requests
@@ -78,9 +80,16 @@ class Client:
 
     def __init__(self, config: Mapping[str, Any]) -> None:
         self.config = config
+        domain = config.get("domain")
+        if not isinstance(domain, str) or not re.fullmatch(
+            r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", domain
+        ):
+            raise ValueError(
+                "Invalid Freshdesk domain: provide only the account subdomain label."
+            )
+        self.allowed_host = f"{domain}.freshdesk.com".lower()
         self._session = session()
         self._credentials_validated = False
-        domain = config.get("domain")
         self.base_url = f"https://{domain}.freshdesk.com/api/v2"
 
         config_request_timeout = config.get("request_timeout")
@@ -94,6 +103,23 @@ class Client:
 
     def __exit__(self, exception_type, exception_value, traceback):
         self._session.close()
+
+    def _validate_endpoint(self, endpoint: str) -> None:
+        try:
+            parts = urlsplit(endpoint)
+            port = parts.port
+        except ValueError as exc:
+            raise ValueError("Invalid Freshdesk endpoint") from exc
+
+        if (
+            parts.scheme.lower() != "https"
+            or parts.hostname is None
+            or parts.hostname.lower() != self.allowed_host
+            or port not in (None, 443)
+            or parts.username is not None
+            or parts.password is not None
+        ):
+            raise ValueError("Requests must target the configured Freshdesk HTTPS host")
 
     def check_api_credentials(self) -> None:
         if self._credentials_validated:
@@ -167,8 +193,10 @@ class Client:
         Returns:
             Dict,List,None: Returns a `Json Parsed` HTTP Response or None if exception
         """
+        self._validate_endpoint(endpoint)
+        request_kwargs = {**kwargs, "allow_redirects": False}
         with metrics.http_request_timer(endpoint) as timer:
-            response = self._session.request(method, endpoint, **kwargs)
+            response = self._session.request(method, endpoint, **request_kwargs)
             raise_for_error(response)
 
         return response.json()

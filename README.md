@@ -98,8 +98,9 @@ This tap:
 
 3. Create your tap's `config.json` file.  The tap config file for this tap should include these entries:
     Create a JSON file called `config.json` containing the api token you just found and
-    the subdomain to your Freshdesk account. The subdomain will take the format
-    `subdomain.freshdesk.com`.
+    the subdomain to your Freshdesk account. Set `domain` to only the account subdomain
+    label (for example, `subdomain` for `subdomain.freshdesk.com`). Do not include the
+    scheme, a path, or the full hostname.
 
     ```json
     {
