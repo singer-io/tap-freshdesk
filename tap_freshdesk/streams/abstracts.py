@@ -18,6 +18,7 @@ from singer.utils import strftime, strptime_to_utc
 from tap_freshdesk.exceptions import (
     freshdeskForbiddenError,
     freshdeskNotFoundError,
+    freshdeskPaginationLimitError,
     freshdeskUnauthorizedError,
 )
 
@@ -39,6 +40,7 @@ class BaseStream(ABC):
     url_endpoint = ""
     path = ""
     page_size = 100
+    max_pages = 500
     headers = {"Accept": "application/json"}
     object_to_id = []
     children = []
@@ -125,10 +127,7 @@ class BaseStream(ABC):
         self.params.update({"per_page": self.page_size, "page": page_count})
 
         while True:
-            LOGGER.info("Calling Page %s", page_count)
-            response = self.client.get(
-                extraction_url, self.params, self.headers, self.path
-            )
+            response = self._get_page(extraction_url, page_count)
             raw_records = response
 
             if not raw_records:
@@ -142,6 +141,20 @@ class BaseStream(ABC):
                 self.params["page"] = page_count
             else:
                 break
+
+    def _get_page(self, extraction_url: str, page_count: int) -> List:
+        """Fetch a page without exceeding Freshdesk's recommended pagination depth."""
+        if page_count > self.max_pages:
+            message = (
+                f"Pagination request limit reached for stream '{self.tap_stream_id}': "
+                f"{self.max_pages} pages returned without reaching the end. "
+                "Aborting sync to avoid unbounded pagination."
+            )
+            LOGGER.error(message)
+            raise freshdeskPaginationLimitError(message)
+
+        LOGGER.info("Calling Page %s", page_count)
+        return self.client.get(extraction_url, self.params, self.headers, self.path)
 
     def write_schema(self):
         """Write a schema message."""
@@ -297,10 +310,7 @@ class IncrementalStream(BaseStream):
             )
 
         while True:
-            LOGGER.info("Calling Page %s", page_count)
-            response = self.client.get(
-                extraction_url, self.params, self.headers, self.path
-            )
+            response = self._get_page(extraction_url, page_count)
             raw_records = response
 
             if not raw_records:

@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import patch, MagicMock, Mock
 from tap_freshdesk.streams.abstracts import ParentBaseStream, ChildBaseStream, IncrementalStream
 
-from tap_freshdesk.streams import Tickets
-from tap_freshdesk.exceptions import freshdeskBadRequestError
+from tap_freshdesk.streams import Agents, Tickets
+from tap_freshdesk.exceptions import freshdeskBadRequestError, freshdeskPaginationLimitError
 
 
 class ConcreteParentBaseStream(ParentBaseStream):
@@ -23,7 +23,7 @@ class ConcreteParentBaseStream(ParentBaseStream):
     @property
     def tap_stream_id(self):
         return "tickets"
-    
+
     @property
     def forced_replication_method(self):
         return "INCREMENTAL"
@@ -46,11 +46,11 @@ class ConcreteChildBaseStream(ChildBaseStream):
     @property
     def tap_stream_id(self):
         return "conversations"
-    
+
     @property
     def forced_replication_method(self):
         return "INCREMENTAL"
-    
+
     def __init__(self, client=None, catalog=None):
         super().__init__(client, catalog)
         self.parent = "tickets"
@@ -74,10 +74,119 @@ class ConcreteIncrementalStream(IncrementalStream):
     @property
     def tap_stream_id(self):
         return "test_stream"
-    
+
     @property
     def forced_replication_method(self):
         return "INCREMENTAL"
+
+
+class TestPagination(unittest.TestCase):
+    stream_types = (
+        Agents,
+        ConcreteIncrementalStream,
+        ConcreteParentBaseStream,
+        ConcreteChildBaseStream,
+    )
+
+    def make_stream(self, stream_type):
+        stream = stream_type(client=Mock())
+        stream.page_size = 2
+        stream.get_bookmark = Mock(return_value="2024-01-01T00:00:00Z")
+        return stream
+
+    def get_records(self, stream):
+        if isinstance(stream, IncrementalStream):
+            return stream.get_records({})
+        return stream.get_records()
+
+    def test_endless_full_pages_fail_at_documented_ceiling(self):
+        for stream_type in self.stream_types:
+            with self.subTest(stream=stream_type.__name__):
+                stream = self.make_stream(stream_type)
+                self.assertEqual(stream.max_pages, 500)
+                requested_pages = []
+                full_page = [{"id": 1}, {"id": 2}]
+
+                def get_page(_endpoint, params, _headers, _path):
+                    requested_pages.append(params["page"])
+                    self.assertLessEqual(len(requested_pages), stream.max_pages)
+                    return full_page
+
+                stream.client.get.side_effect = get_page
+                records = []
+                with patch("tap_freshdesk.streams.abstracts.LOGGER.error") as log_error:
+                    with self.assertRaisesRegex(
+                        freshdeskPaginationLimitError,
+                        rf"{stream.tap_stream_id}.*500",
+                    ):
+                        for record in self.get_records(stream):
+                            records.append(record)
+
+                self.assertEqual(requested_pages, list(range(1, 501)))
+                self.assertEqual(records, full_page * 500)
+                log_error.assert_called_once()
+                self.assertIn(stream.tap_stream_id, log_error.call_args[0][0])
+                self.assertIn("500", log_error.call_args[0][0])
+
+    def test_normal_termination_including_last_permitted_page(self):
+        full_page = [{"id": 1}, {"id": 2}]
+        partial_page = [{"id": 3}]
+        responses = (
+            [[]],
+            [partial_page],
+            [full_page, []],
+            [full_page, partial_page],
+            [full_page, full_page, []],
+            [full_page, full_page, partial_page],
+        )
+        for stream_type in self.stream_types:
+            for pages in responses:
+                with self.subTest(stream=stream_type.__name__, pages=pages):
+                    stream = self.make_stream(stream_type)
+                    stream.max_pages = 3
+                    stream.client.get.side_effect = pages
+                    records = list(self.get_records(stream))
+                    self.assertEqual(records, [record for page in pages for record in page])
+                    self.assertEqual(stream.client.get.call_count, len(pages))
+
+    def test_ceiling_resets_for_each_pagination_run(self):
+        for stream_type in self.stream_types:
+            with self.subTest(stream=stream_type.__name__):
+                stream = self.make_stream(stream_type)
+                stream.max_pages = 2
+                stream.client.get.side_effect = [[{"id": 1}, {"id": 2}], []] * 2
+                for _ in range(2):
+                    self.assertEqual(list(self.get_records(stream)), [{"id": 1}, {"id": 2}])
+                    self.assertEqual(stream.params["page"], 2)
+                self.assertEqual(stream.client.get.call_count, 4)
+
+    def test_ticket_api_limit_error_is_preserved(self):
+        stream = self.make_stream(ConcreteParentBaseStream)
+        stream.client.get.side_effect = freshdeskBadRequestError("Ticket API limit")
+        with self.assertRaises(freshdeskBadRequestError):
+            list(self.get_records(stream))
+        stream.client.get.assert_called_once()
+
+    @patch("tap_freshdesk.streams.abstracts.write_record")
+    def test_ticket_sync_does_not_retry_or_advance_bookmark_at_safety_ceiling(self, _write_record):
+        stream = Tickets(client=Mock())
+        stream.max_pages = 2
+        stream.page_size = 1
+        stream.get_bookmark = Mock(return_value="2024-01-01T00:00:00Z")
+        stream.write_bookmark = Mock()
+        stream.is_selected = Mock(return_value=True)
+        record = {"id": 1, "updated_at": "2024-01-01T00:00:00Z"}
+        stream.client.get.return_value = [record]
+        transformer = Mock()
+        transformer.transform.side_effect = lambda data, *_args: data
+        state = {}
+
+        with self.assertRaises(freshdeskPaginationLimitError):
+            stream.sync(state, transformer)
+
+        self.assertEqual(stream.client.get.call_count, 2)
+        stream.write_bookmark.assert_not_called()
+        self.assertEqual(state, {})
 
 
 class TestParentBaseStream(unittest.TestCase):
