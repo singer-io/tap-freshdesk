@@ -38,6 +38,114 @@ def _make_client():
 
 
 # ---------------------------------------------------------------------------
+# Client domain validation
+# ---------------------------------------------------------------------------
+
+
+class TestClientDomainValidation(unittest.TestCase):
+    def test_valid_subdomain_uses_fixed_freshdesk_host(self):
+        client = _make_client()
+        self.assertEqual(
+            client.base_url, "https://testdomain.freshdesk.com/api/v2"
+        )
+
+    def test_requests_do_not_follow_redirects(self):
+        client = _make_client()
+        client._session.request = Mock(
+            return_value=_make_response(200, json_data=[])
+        )
+
+        client.get("https://testdomain.freshdesk.com/api/v2/agents", {}, {})
+
+        self.assertFalse(
+            client._session.request.call_args.kwargs["allow_redirects"]
+        )
+
+    def test_rejects_non_subdomain_values(self):
+        invalid_domains = [
+            None,
+            "",
+            "some-url.com/",
+            "https://some-url.com",
+            "some-internal.local",
+            "reporting.internal.freshdesk.com",
+            "user@some-url.com",
+            "-invalid",
+            "invalid-",
+            "a" * 64,
+        ]
+
+        for domain in invalid_domains:
+            with self.subTest(domain=domain):
+                with self.assertRaisesRegex(ValueError, "account subdomain label"):
+                    Client({"api_key": "test_key", "domain": domain})
+
+    def test_rejects_invalid_endpoints_before_request(self):
+        client = _make_client()
+        client._session.request = Mock()
+        invalid_endpoints = [
+            "http://testdomain.freshdesk.com/api/v2/agents",
+            "https://otherdomain.freshdesk.com/api/v2/agents",
+            "https://testdomain.freshdesk.com.evil.com/api/v2/agents",
+            "https://testdomain.freshdesk.com:8443/api/v2/agents",
+            "https://user@testdomain.freshdesk.com/api/v2/agents",
+            "https://user:password@testdomain.freshdesk.com/api/v2/agents",
+            "https://@testdomain.freshdesk.com/api/v2/agents",
+            "https:///api/v2/agents",
+            "//testdomain.freshdesk.com/api/v2/agents",
+            "/api/v2/agents",
+            "https://testdomain.freshdesk.com:invalid/api/v2/agents",
+            "https://testdomain.freshdesk.com:65536/api/v2/agents",
+            "https://[invalid/api/v2/agents",
+        ]
+
+        for method in ("get", "post"):
+            for endpoint in invalid_endpoints:
+                with self.subTest(method=method, endpoint=endpoint):
+                    with self.assertRaises(ValueError):
+                        if method == "get":
+                            client.get(endpoint, {}, {})
+                        else:
+                            client.post(endpoint, {}, {}, {})
+                    client._session.request.assert_not_called()
+
+    def test_accepts_configured_https_origin(self):
+        client = Client({"api_key": "test_key", "domain": "TestDomain"})
+        client._session.request = Mock(return_value=_make_response(200))
+        valid_endpoints = [
+            "https://testdomain.freshdesk.com/api/v2/agents",
+            "HTTPS://TESTDOMAIN.FRESHDESK.COM:443/api/v2/agents",
+        ]
+
+        for method in ("get", "post"):
+            for endpoint in valid_endpoints:
+                with self.subTest(method=method, endpoint=endpoint):
+                    client._session.request.reset_mock()
+                    if method == "get":
+                        client.get(endpoint, {}, {})
+                    else:
+                        client.post(endpoint, {}, {}, {})
+                    client._session.request.assert_called_once()
+                    self.assertEqual(
+                        client._session.request.call_args.args,
+                        (method.upper(), endpoint),
+                    )
+                    self.assertFalse(
+                        client._session.request.call_args.kwargs["allow_redirects"]
+                    )
+
+    def test_shared_request_boundary_overrides_redirect_option(self):
+        client = _make_client()
+        client._session.request = Mock(return_value=_make_response(200))
+
+        client._Client__make_request(
+            "GET", f"{client.base_url}/agents", allow_redirects=True
+        )
+
+        self.assertFalse(client._session.request.call_args.kwargs["allow_redirects"])
+
+
+# ---------------------------------------------------------------------------
 # freshdeskRateLimitError
 # ---------------------------------------------------------------------------
 
@@ -250,7 +358,7 @@ class TestClientRetryBehavior(unittest.TestCase):
                 _make_response(200, json_data=[{"id": 1}]),
             ]
         )
-        result = self.client.get("http://test.com", {}, {})
+        result = self.client.get(f"{self.client.base_url}/agents", {}, {})
         self.assertEqual(self.client._session.request.call_count, 2)
         self.assertEqual(result, [{"id": 1}])
 
@@ -266,7 +374,7 @@ class TestClientRetryBehavior(unittest.TestCase):
                 _make_response(200, json_data=[{"id": 2}]),
             ]
         )
-        self.client.get("http://test.com", {}, {})
+        self.client.get(f"{self.client.base_url}/agents", {}, {})
         # time.sleep must have been called with the Retry-After value
         sleep_calls = [call.args[0] for call in mock_sleep.call_args_list]
         self.assertIn(7.0, sleep_calls)
@@ -288,7 +396,7 @@ class TestClientRetryBehavior(unittest.TestCase):
                 _make_response(200, json_data=[{"id": 3}]),
             ]
         )
-        result = self.client.get("http://test.com", {}, {})
+        result = self.client.get(f"{self.client.base_url}/agents", {}, {})
         self.assertEqual(self.client._session.request.call_count, 2)
         self.assertEqual(result, [{"id": 3}])
 
@@ -301,7 +409,7 @@ class TestClientRetryBehavior(unittest.TestCase):
                 _make_response(200, json_data=[{"id": 4}]),
             ]
         )
-        result = self.client.get("http://test.com", {}, {})
+        result = self.client.get(f"{self.client.base_url}/agents", {}, {})
         self.assertEqual(self.client._session.request.call_count, 2)
         self.assertEqual(result, [{"id": 4}])
 
@@ -314,7 +422,7 @@ class TestClientRetryBehavior(unittest.TestCase):
                 _make_response(200, json_data=[{"id": 5}]),
             ]
         )
-        result = self.client.get("http://test.com", {}, {})
+        result = self.client.get(f"{self.client.base_url}/agents", {}, {})
         self.assertEqual(self.client._session.request.call_count, 2)
         self.assertEqual(result, [{"id": 5}])
 
@@ -331,7 +439,7 @@ class TestClientRetryBehavior(unittest.TestCase):
                 _make_response(200, json_data=[{"id": 6}]),
             ]
         )
-        result = self.client.get("http://test.com", {}, {})
+        result = self.client.get(f"{self.client.base_url}/agents", {}, {})
         self.assertEqual(self.client._session.request.call_count, 2)
         self.assertEqual(result, [{"id": 6}])
 
@@ -346,7 +454,7 @@ class TestClientRetryBehavior(unittest.TestCase):
                 _make_response(200, json_data=[{"id": 7}]),
             ]
         )
-        result = self.client.get("http://test.com", {}, {})
+        result = self.client.get(f"{self.client.base_url}/agents", {}, {})
         self.assertEqual(self.client._session.request.call_count, 2)
         self.assertEqual(result, [{"id": 7}])
 
@@ -362,7 +470,7 @@ class TestClientRetryBehavior(unittest.TestCase):
             return_value=_make_response(400)
         )
         with self.assertRaises(freshdeskBadRequestError):
-            self.client.get("http://test.com", {}, {})
+            self.client.get(f"{self.client.base_url}/agents", {}, {})
         # Only one attempt — no retry
         self.assertEqual(self.client._session.request.call_count, 1)
 
@@ -375,5 +483,5 @@ class TestClientRetryBehavior(unittest.TestCase):
             return_value=_make_response(429, headers={"Retry-After": "0"})
         )
         with self.assertRaises(freshdeskRateLimitError):
-            self.client.get("http://test.com", {}, {})
+            self.client.get(f"{self.client.base_url}/agents", {}, {})
         self.assertEqual(self.client._session.request.call_count, 5)
