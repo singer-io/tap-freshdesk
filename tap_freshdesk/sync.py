@@ -3,6 +3,7 @@ from typing import Dict
 from tap_freshdesk.schema import write_schema
 from tap_freshdesk.streams import STREAMS
 from tap_freshdesk.client import Client
+from tap_freshdesk.exceptions import freshdeskPaginationLimitError
 
 LOGGER = singer.get_logger()
 
@@ -52,7 +53,17 @@ def sync(client: Client, config: Dict, catalog: singer.Catalog, state) -> None:
             write_schema(stream, client, streams_to_sync, catalog)
             LOGGER.info(f"START Syncing: {stream_name}")
             update_currently_syncing(state, stream_name)
-            total_records = stream.sync(state=state, transformer=transformer)
+            try:
+                total_records = stream.sync(state=state, transformer=transformer)
+            except freshdeskPaginationLimitError:
+                # The stream has already saved its progress bookmark into `state`;
+                # emit it so the next run can resume from there.
+                LOGGER.warning(
+                    f"Sync of {stream_name} aborted at the pagination limit. "
+                    "Emitting saved state before exiting."
+                )
+                singer.write_state(state)
+                raise
 
             update_currently_syncing(state, None)
             LOGGER.info(f"FINISHED Syncing: {stream_name}, total_records: {total_records}")
