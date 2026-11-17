@@ -70,6 +70,19 @@ This tap:
 - Replication strategy: FULL_TABLE
 
 
+### Pagination safety
+
+Freshdesk [recommends avoiding page numbers above 500](https://developers.freshdesk.com/api/#best_practices).
+The tap therefore permits at most 500 page requests per pagination run,
+including each child stream's run for a parent object. Empty or partial pages
+terminate pagination normally, including on page 500. If page 500 is full and
+another page would be needed, the tap logs an error and raises
+`freshdeskPaginationLimitError` with the stream name and limit. The sync fails
+instead of silently truncating data or requesting pages indefinitely.
+
+This safety ceiling does not change the existing recovery for the
+[Tickets API's 300-page limit](https://developers.freshdesk.com/api/#list_all_tickets).
+
 
 ## Authentication
 

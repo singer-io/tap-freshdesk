@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import timedelta
-from typing import Any, Dict, Tuple, List
+from typing import Any, Dict, Mapping, Tuple, List
 import copy
 
 from singer import (
@@ -18,12 +18,35 @@ from singer.utils import strftime, strptime_to_utc
 from tap_freshdesk.exceptions import (
     freshdeskForbiddenError,
     freshdeskNotFoundError,
+    freshdeskPaginationLimitError,
     freshdeskUnauthorizedError,
 )
 
 from tap_freshdesk.exceptions import freshdeskBadRequestError
 
 LOGGER = get_logger()
+
+# Freshdesk recommends avoiding page numbers above 500 (deep pagination).
+DEFAULT_MAX_PAGES = 500
+
+
+def resolve_max_pages(config: Any) -> int:
+    """Return the per-run pagination ceiling, honouring an optional
+    `max_pages` config override."""
+    value = config.get("max_pages") if isinstance(config, Mapping) else None
+    if value in (None, ""):
+        return DEFAULT_MAX_PAGES
+
+    try:
+        max_pages = int(value)
+    except (TypeError, ValueError):
+        max_pages = 0
+
+    if max_pages < 1:
+        raise ValueError(
+            f"Invalid `max_pages` config value {value!r}: must be a positive integer."
+        )
+    return max_pages
 
 
 class BaseStream(ABC):
@@ -39,6 +62,7 @@ class BaseStream(ABC):
     url_endpoint = ""
     path = ""
     page_size = 100
+    max_pages = DEFAULT_MAX_PAGES
     headers = {"Accept": "application/json"}
     object_to_id = []
     children = []
@@ -52,6 +76,7 @@ class BaseStream(ABC):
         self.metadata = metadata.to_map(catalog.metadata) if catalog else {}
         self.child_to_sync = []
         self.params = {}
+        self.max_pages = resolve_max_pages(getattr(client, "config", None))
 
     @property
     @abstractmethod
@@ -125,10 +150,7 @@ class BaseStream(ABC):
         self.params.update({"per_page": self.page_size, "page": page_count})
 
         while True:
-            LOGGER.info("Calling Page %s", page_count)
-            response = self.client.get(
-                extraction_url, self.params, self.headers, self.path
-            )
+            response = self._get_page(extraction_url, page_count)
             raw_records = response
 
             if not raw_records:
@@ -142,6 +164,22 @@ class BaseStream(ABC):
                 self.params["page"] = page_count
             else:
                 break
+
+    def _get_page(self, extraction_url: str, page_count: int) -> List:
+        """Fetch a page without exceeding the configured pagination depth."""
+        if page_count > self.max_pages:
+            message = (
+                f"Pagination request limit reached for stream '{self.tap_stream_id}': "
+                f"{self.max_pages} pages ({self.max_pages * self.page_size} records) "
+                "returned without reaching the end. Aborting sync to avoid unbounded "
+                "pagination. If this account legitimately has more records, raise the "
+                "`max_pages` value in the tap config."
+            )
+            LOGGER.error(message)
+            raise freshdeskPaginationLimitError(message)
+
+        LOGGER.info("Calling Page %s", page_count)
+        return self.client.get(extraction_url, self.params, self.headers, self.path)
 
     def write_schema(self):
         """Write a schema message."""
@@ -297,10 +335,7 @@ class IncrementalStream(BaseStream):
             )
 
         while True:
-            LOGGER.info("Calling Page %s", page_count)
-            response = self.client.get(
-                extraction_url, self.params, self.headers, self.path
-            )
+            response = self._get_page(extraction_url, page_count)
             raw_records = response
 
             if not raw_records:
@@ -327,28 +362,43 @@ class IncrementalStream(BaseStream):
         self.url_endpoint = self.get_url_endpoint(parent_obj)
 
         with metrics.record_counter(self.tap_stream_id) as counter:
-            for record in self.get_records(state):
-                record = self.modify_object(record, parent_obj)
-                if "custom_fields" in record:
-                    record["custom_fields"] = self.modify_object_custom_fields(
-                        record["custom_fields"], force_to_string=True
-                    )
-                transformed_record = transformer.transform(
-                    copy.deepcopy(record), self.schema, self.metadata
-                )
-
-                record_timestamp = transformed_record[self.replication_keys[0]]
-                if record_timestamp >= bookmark_date:
-                    write_record(self.tap_stream_id, transformed_record)
-                    current_max_bookmark_date = max(
-                        current_max_bookmark_date, record_timestamp
-                    )
-                    counter.increment()
-
-                    for child in self.child_to_sync:
-                        child.sync(
-                            state=state, transformer=transformer, parent_obj=record
+            try:
+                for record in self.get_records(state):
+                    record = self.modify_object(record, parent_obj)
+                    if "custom_fields" in record:
+                        record["custom_fields"] = self.modify_object_custom_fields(
+                            record["custom_fields"], force_to_string=True
                         )
+                    transformed_record = transformer.transform(
+                        copy.deepcopy(record), self.schema, self.metadata
+                    )
+
+                    record_timestamp = transformed_record[self.replication_keys[0]]
+                    if record_timestamp >= bookmark_date:
+                        write_record(self.tap_stream_id, transformed_record)
+                        current_max_bookmark_date = max(
+                            current_max_bookmark_date, record_timestamp
+                        )
+                        counter.increment()
+
+                        for child in self.child_to_sync:
+                            child.sync(
+                                state=state, transformer=transformer, parent_obj=record
+                            )
+            except freshdeskPaginationLimitError:
+                # Persist the progress made so far so the next run resumes from
+                # the newest record seen instead of re-reading from the start.
+                LOGGER.warning(
+                    "Pagination limit hit for %s. Saving bookmark %s "
+                    "(previous: %s) before aborting; the next run will resume from it.",
+                    self.tap_stream_id,
+                    current_max_bookmark_date,
+                    bookmark_date,
+                )
+                state = self.write_bookmark(
+                    state, self.tap_stream_id, value=current_max_bookmark_date
+                )
+                raise
 
             state = self.write_bookmark(state, self.tap_stream_id, value=current_max_bookmark_date)
             return counter.value
@@ -550,6 +600,23 @@ class ParentBaseStream(IncrementalStream):
                         )
 
                         sync_completed = True
+
+                    except freshdeskPaginationLimitError:
+                        # Raised either by this stream or by a child stream mid-ticket.
+                        # Tickets are ordered by updated_at asc, so resuming from the
+                        # newest fully processed ticket is safe.
+                        LOGGER.warning(
+                            "Pagination limit hit while syncing %s. Saving bookmark %s "
+                            "before aborting; the next run will resume from it.",
+                            ticket_key,
+                            current_max_bookmark_date,
+                        )
+                        state = self.write_bookmark(
+                            state,
+                            ticket_key,
+                            value=current_max_bookmark_date,
+                        )
+                        raise
 
                     except freshdeskBadRequestError:
                         restart_count += 1

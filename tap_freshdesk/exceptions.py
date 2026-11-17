@@ -13,6 +13,12 @@ class freshdeskNoAccessibleStreamsError(freshdeskError):
     pass
 
 
+class freshdeskPaginationLimitError(freshdeskError):
+    """Raised when pagination would exceed the request safety ceiling."""
+
+    pass
+
+
 class freshdeskBackoffError(freshdeskError):
     """Class representing backoff error handling."""
 

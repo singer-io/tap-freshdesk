@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.3
+- Bound pagination to 500 pages per run and fail visibly if more pages are needed [#74](https://github.com/singer-io/tap-freshdesk/pull/74)
+
 ## 1.1.2
 - Hardened SSRF protection by restricting Freshdesk requests to validated account subdomains [#73](https://github.com/singer-io/tap-freshdesk/pull/73)
 
