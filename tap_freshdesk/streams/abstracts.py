@@ -760,15 +760,25 @@ class ChildBaseStream(IncrementalStream):
         last_record_timestamp = child_bookmark  # Default to existing bookmark if no new records
 
         with metrics.record_counter(self.tap_stream_id) as counter:
-            for record in self.get_records(state):
-                transformed_record = transformer.transform(record, self.schema, self.metadata)
-                record_timestamp = transformed_record[self.replication_keys[0]]
+            try:
+                for record in self.get_records(state):
+                    transformed_record = transformer.transform(record, self.schema, self.metadata)
+                    record_timestamp = transformed_record[self.replication_keys[0]]
 
-                # Compare against whichever is newer: child's own or parent's
-                if record_timestamp >= max(filter(None, [child_bookmark, parent_bookmark])):
-                    write_record(self.tap_stream_id, transformed_record)
-                    counter.increment()
-                    last_record_timestamp = record_timestamp
+                    # Compare against whichever is newer: child's own or parent's
+                    if record_timestamp >= max(filter(None, [child_bookmark, parent_bookmark])):
+                        write_record(self.tap_stream_id, transformed_record)
+                        counter.increment()
+                        last_record_timestamp = record_timestamp
+            except freshdeskNotFoundError:
+                # Freshdesk returns 404 for some child endpoints of spam/deleted
+                # tickets (e.g. /tickets/{id}/time_entries). Treat as "no records"
+                # for this parent instead of failing the whole sync.
+                LOGGER.warning(
+                    "%s not found for %s %s (filter=%s); skipping.",
+                    self.tap_stream_id, self.parent, parent_obj.get("id"),
+                    parent_obj.get("filter", "") or "none",
+                )
 
             # Update bookmark with both child's and parent's dates
             self.write_child_bookmark_with_parent(
